@@ -6,8 +6,9 @@ use libsodium_rs::{crypto_hash::sha256, crypto_secretstream::xchacha20poly1305, 
 use zeroize::Zeroizing;
 
 use crate::attachment_manifest::{
-    AttachmentKey, AttachmentManifest, AttachmentManifestError, CHUNK_BYTES, ENVELOPE_HEADER_BYTES,
-    RECORD_OVERHEAD_BYTES, canonical_ciphertext_length, chunk_count, format_chunk_count,
+    ATTACHMENT_KEY_BYTES, AttachmentKey, AttachmentManifest, AttachmentManifestError, CHUNK_BYTES,
+    DIGEST_BYTES, ENVELOPE_HEADER_BYTES, RECORD_OVERHEAD_BYTES, canonical_ciphertext_length,
+    chunk_count, format_chunk_count,
 };
 use crate::key_bundle::CanonicalUuid;
 
@@ -112,6 +113,53 @@ pub(crate) struct EncryptedAttachment {
     pub(crate) manifest: AttachmentManifest,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct EnvelopeBinding {
+    pub(crate) conversation_id: CanonicalUuid,
+    pub(crate) asset_id: CanonicalUuid,
+    pub(crate) plaintext_length: u64,
+    pub(crate) ciphertext_length: u64,
+    pub(crate) ciphertext_digest: [u8; DIGEST_BYTES],
+}
+
+impl EnvelopeBinding {
+    pub(crate) fn new(
+        conversation_id: CanonicalUuid,
+        asset_id: CanonicalUuid,
+        plaintext_length: u64,
+        ciphertext_length: u64,
+        ciphertext_digest: [u8; DIGEST_BYTES],
+    ) -> Result<Self, AttachmentEnvelopeError> {
+        if canonical_ciphertext_length(plaintext_length).map_err(map_manifest_error)?
+            != ciphertext_length
+        {
+            return Err(AttachmentEnvelopeError::InvalidInput);
+        }
+        Ok(Self {
+            conversation_id,
+            asset_id,
+            plaintext_length,
+            ciphertext_length,
+            ciphertext_digest,
+        })
+    }
+
+    fn from_manifest(manifest: &AttachmentManifest) -> Result<Self, AttachmentEnvelopeError> {
+        Self::new(
+            manifest.conversation_id().map_err(map_manifest_error)?,
+            manifest.asset_id().map_err(map_manifest_error)?,
+            manifest.plaintext_length().map_err(map_manifest_error)?,
+            manifest.ciphertext_length().map_err(map_manifest_error)?,
+            manifest.ciphertext_digest().map_err(map_manifest_error)?,
+        )
+    }
+}
+
+pub(crate) struct EncryptedEnvelope {
+    pub(crate) header: EnvelopeHeader,
+    pub(crate) binding: EnvelopeBinding,
+}
+
 pub(crate) fn encrypt_stream<R, W, C>(
     source: &mut R,
     output: &mut W,
@@ -125,12 +173,50 @@ where
     W: Write,
     C: CancellationCheck,
 {
+    let attachment_key = AttachmentKey::generate().map_err(map_manifest_error)?;
+    let encrypted = encrypt_stream_with_key(
+        source,
+        output,
+        plaintext_length,
+        conversation_id,
+        asset_id,
+        attachment_key.as_bytes(),
+        cancellation,
+    )?;
+    let manifest = AttachmentManifest::new(
+        conversation_id,
+        asset_id,
+        plaintext_length,
+        encrypted.binding.ciphertext_length,
+        encrypted.binding.ciphertext_digest,
+        attachment_key,
+    )
+    .map_err(map_manifest_error)?;
+    Ok(EncryptedAttachment {
+        header: encrypted.header,
+        manifest,
+    })
+}
+
+pub(crate) fn encrypt_stream_with_key<R, W, C>(
+    source: &mut R,
+    output: &mut W,
+    plaintext_length: u64,
+    conversation_id: CanonicalUuid,
+    asset_id: CanonicalUuid,
+    secret_key: &[u8; ATTACHMENT_KEY_BYTES],
+    cancellation: &mut C,
+) -> Result<EncryptedEnvelope, AttachmentEnvelopeError>
+where
+    R: Read,
+    W: Write,
+    C: CancellationCheck,
+{
     if cancellation.is_cancelled() {
         return Err(AttachmentEnvelopeError::Cancelled);
     }
     let count = chunk_count(plaintext_length).map_err(map_manifest_error)?;
-    let attachment_key = AttachmentKey::generate().map_err(map_manifest_error)?;
-    let key = xchacha20poly1305::Key::from_bytes(attachment_key.as_bytes())
+    let key = xchacha20poly1305::Key::from_bytes(secret_key)
         .map_err(|_| AttachmentEnvelopeError::Cryptography)?;
     let (mut push, stream_header) = xchacha20poly1305::PushState::init_push(&key)
         .map_err(|_| AttachmentEnvelopeError::Cryptography)?;
@@ -170,16 +256,14 @@ where
     let ciphertext_digest = digest.finalize();
     let ciphertext_length =
         canonical_ciphertext_length(plaintext_length).map_err(map_manifest_error)?;
-    let manifest = AttachmentManifest::new(
+    let binding = EnvelopeBinding::new(
         conversation_id,
         asset_id,
         plaintext_length,
         ciphertext_length,
         ciphertext_digest,
-        attachment_key,
-    )
-    .map_err(map_manifest_error)?;
-    Ok(EncryptedAttachment { header, manifest })
+    )?;
+    Ok(EncryptedEnvelope { header, binding })
 }
 
 pub(crate) fn decrypt_stream<R, W, C>(
@@ -193,7 +277,29 @@ where
     W: Write,
     C: CancellationCheck,
 {
-    let verified_header = verify_ciphertext(ciphertext, manifest, cancellation)?;
+    let binding = EnvelopeBinding::from_manifest(manifest)?;
+    decrypt_stream_with_key(
+        ciphertext,
+        output,
+        &binding,
+        manifest.attachment_key().map_err(map_manifest_error)?,
+        cancellation,
+    )
+}
+
+pub(crate) fn decrypt_stream_with_key<R, W, C>(
+    ciphertext: &mut R,
+    output: &mut W,
+    binding: &EnvelopeBinding,
+    secret_key: &[u8; ATTACHMENT_KEY_BYTES],
+    cancellation: &mut C,
+) -> Result<EnvelopeHeader, AttachmentEnvelopeError>
+where
+    R: Read + Seek,
+    W: Write,
+    C: CancellationCheck,
+{
+    let verified_header = verify_ciphertext(ciphertext, binding, cancellation)?;
     ciphertext
         .seek(SeekFrom::Start(0))
         .map_err(|_| AttachmentEnvelopeError::Io)?;
@@ -207,14 +313,11 @@ where
     if !libsodium_rs::utils::memcmp(header.as_bytes(), verified_header.as_bytes()) {
         return Err(AttachmentEnvelopeError::InvalidInput);
     }
-    let key =
-        xchacha20poly1305::Key::from_bytes(manifest.attachment_key().map_err(map_manifest_error)?)
-            .map_err(|_| AttachmentEnvelopeError::Cryptography)?;
+    let key = xchacha20poly1305::Key::from_bytes(secret_key)
+        .map_err(|_| AttachmentEnvelopeError::Cryptography)?;
     let stream_header = header.stream_header()?;
     let mut pull = xchacha20poly1305::PullState::init_pull(&stream_header, &key)
         .map_err(|_| AttachmentEnvelopeError::Authentication)?;
-    let conversation_id = manifest.conversation_id().map_err(map_manifest_error)?;
-    let asset_id = manifest.asset_id().map_err(map_manifest_error)?;
     let plaintext_length = header.plaintext_length()?;
     let count = header.record_count()?;
     let mut record = vec![0_u8; RECORD_CIPHERTEXT_BYTES];
@@ -226,7 +329,13 @@ where
         let expected_plaintext = record_plaintext_length(plaintext_length, count, index)?;
         let expected_ciphertext = expected_plaintext + RECORD_OVERHEAD_BYTES as usize;
         read_exact_input(ciphertext, &mut record[..expected_ciphertext])?;
-        let aad = record_aad(conversation_id, asset_id, header, index, count);
+        let aad = record_aad(
+            binding.conversation_id,
+            binding.asset_id,
+            header,
+            index,
+            count,
+        );
         let (plaintext, tag) = pull
             .pull(&record[..expected_ciphertext], Some(&aad))
             .map_err(|_| AttachmentEnvelopeError::Authentication)?;
@@ -251,18 +360,18 @@ where
 
 fn verify_ciphertext<R, C>(
     ciphertext: &mut R,
-    manifest: &AttachmentManifest,
+    binding: &EnvelopeBinding,
     cancellation: &mut C,
 ) -> Result<EnvelopeHeader, AttachmentEnvelopeError>
 where
     R: Read,
     C: CancellationCheck,
 {
-    let expected_length = manifest.ciphertext_length().map_err(map_manifest_error)?;
+    let expected_length = binding.ciphertext_length;
     let mut raw_header = [0_u8; HEADER_BYTES];
     read_exact_input(ciphertext, &mut raw_header)?;
     let header = EnvelopeHeader::parse(&raw_header)?;
-    if header.plaintext_length()? != manifest.plaintext_length().map_err(map_manifest_error)?
+    if header.plaintext_length()? != binding.plaintext_length
         || canonical_ciphertext_length(header.plaintext_length()?).map_err(map_manifest_error)?
             != expected_length
     {
@@ -287,8 +396,7 @@ where
     }
     require_eof(ciphertext)?;
     let actual_digest = digest.finalize();
-    let expected_digest = manifest.ciphertext_digest().map_err(map_manifest_error)?;
-    if !crypto_verify::verify_32(&actual_digest, &expected_digest) {
+    if !crypto_verify::verify_32(&actual_digest, &binding.ciphertext_digest) {
         return Err(AttachmentEnvelopeError::Authentication);
     }
     Ok(header)

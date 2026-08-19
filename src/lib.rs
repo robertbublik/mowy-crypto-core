@@ -26,6 +26,12 @@ mod private_files;
 #[allow(dead_code, reason = "platform integration is a later reviewed slice")]
 mod operation_repository;
 
+#[allow(dead_code, reason = "platform integration is a later reviewed slice")]
+mod archive;
+
+#[allow(dead_code, reason = "platform integration is a later reviewed slice")]
+mod receiver_lifecycle;
+
 /// Identifies the pinned public-core profile without accepting hostile input.
 pub fn core_profile_version() -> u16 {
     1
