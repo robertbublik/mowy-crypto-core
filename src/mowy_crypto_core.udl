@@ -1,0 +1,3 @@
+namespace mowy_crypto_core {
+  u16 core_profile_version();
+};

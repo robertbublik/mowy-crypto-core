@@ -1,0 +1,53 @@
+# Supply-chain evidence
+
+Status: Implemented for the P2 commit-1 build boundary; refreshed at every
+dependency change and reviewed again at package closeout.
+
+`Cargo.lock` is the exact version/checksum inventory and `vendor/` is the only
+Cargo source. The repository configuration replaces crates.io with that tree
+and sets Cargo offline. Cargo verifies each vendored crate against its generated
+`.cargo-checksum.json` during every build.
+
+`bom.cdx.json` is the CycloneDX 1.5 machine-readable shipped/build package and
+licence inventory generated with `cargo-cyclonedx 0.5.9`, all features, all
+targets, and `SOURCE_DATE_EPOCH=1787097600`; dev-only packages remain in
+`Cargo.lock` and the notices below. `build-scripts.txt` is the reviewed list of
+vendored crates that can execute a build script. `libsodium-source.sha256`
+freezes the signed archive and signature bytes bundled by the immutable
+`libsodium-sys-stable 1.24.0` crate.
+
+The generator's root `bom-ref` contains the absolute checkout directory. The
+generation check normalizes that root and its target suffixes to the stable
+`pkg:cargo/mowy-crypto-core@0.1.0` reference before comparison. This prevents a
+developer path from becoming public evidence and makes the committed SBOM
+independent of checkout location; dependency references and content are not
+rewritten.
+
+The source check also requires independent `rsign 0.6.6` verification with the
+libsodium minisign public key. The historical filename `LATEST.tar.gz` is part
+of the immutable crate; scripts never fetch the mutable upstream `LATEST`
+endpoint.
+
+`scripts/build-mobile.sh` binds Android to NDK 27.1.12297006 and API 24 and
+builds the two Apple and two Android target triples frozen by P2. A non-rustup
+host must additionally point `MOWY_CARGO_BIN`, `MOWY_RUSTC_BIN`, and
+`MOWY_RUSTDOC_BIN` at the same 1.97.1 sysroot so Cargo cannot select another
+installation with the same displayed version.
+
+Development tools used for this boundary:
+
+- Rust and Cargo 1.97.1;
+- UniFFI 0.31.2 from the locked dependency graph;
+- cargo-deny 0.20.2;
+- cargo-cyclonedx 0.5.9;
+- rsign 0.6.6.
+
+The committed SBOM has no component without a licence expression. The
+human-readable shipped-source notices are in `THIRD_PARTY_NOTICES.md`.
+
+The duplicate-version check denies additions except five reviewed legacy
+branches forced by the exact approved graph: `hashbrown 0.16.1` from
+libsodium's compression tooling, `syn 2.0.119` and `winnow 0.7.15` from UniFFI,
+and `thiserror 1.0.69` plus its matching macro from `libsodium-rs`. Their newer
+counterparts are required by other pinned packages; changing either side would
+change an approved pin.
