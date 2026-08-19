@@ -168,7 +168,9 @@ pub(crate) fn generate() -> Result<(RootKeyMaterial, DevicePublicKeys), KeyMater
     Ok((material, public_keys))
 }
 
-fn derive_public_keys(material: &RootKeyMaterial) -> Result<DevicePublicKeys, KeyMaterialError> {
+pub(crate) fn derive_public_keys(
+    material: &RootKeyMaterial,
+) -> Result<DevicePublicKeys, KeyMaterialError> {
     let identity = crypto_sign::KeyPair::from_seed(material.identity_seed())
         .map_err(|_| KeyMaterialError::CorruptState)?;
     let agreement = crypto_box::SecretKey::from_bytes(material.agreement_secret())
