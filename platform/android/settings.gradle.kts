@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "mowy-crypto-core-platform"
 include(":key-storage")
+include(":proof-app")

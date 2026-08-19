@@ -436,6 +436,24 @@ impl PublishedKeyRepository {
         }
         Ok(bundle)
     }
+
+    pub(crate) fn remove_development_bundle(
+        &mut self,
+        account_id: CanonicalUuid,
+        device_id: CanonicalUuid,
+    ) -> Result<(), KeyBundleError> {
+        self.connection
+            .execute(
+                "DELETE FROM published_device_key_bundles
+                 WHERE account_id = ?1 AND device_id = ?2",
+                params![
+                    account_id.as_network_bytes().as_slice(),
+                    device_id.as_network_bytes().as_slice(),
+                ],
+            )
+            .map_err(|_| KeyBundleError::Storage)?;
+        Ok(())
+    }
 }
 
 fn load_bundle(

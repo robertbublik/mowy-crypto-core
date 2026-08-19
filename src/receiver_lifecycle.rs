@@ -26,14 +26,20 @@ pub(crate) struct AvailableArchive {
     pub(crate) descriptor: ArchiveDescriptor,
 }
 
-pub(crate) fn complete_or_recover<C: CancellationCheck>(
+pub(crate) trait AvailabilityCheck {
+    fn is_available(&mut self) -> bool;
+}
+
+pub(crate) fn complete_or_recover<C: CancellationCheck, A: AvailabilityCheck>(
     repository: &mut OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
     opened: OpenedManifest,
     archive_key: &ArchiveKey,
+    availability: &mut A,
     cancellation: &mut C,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
+    require_available(availability)?;
     repository
         .require_exact_receiver(operation_id, &opened)
         .map_err(map_repository_error)?;
@@ -48,6 +54,7 @@ pub(crate) fn complete_or_recover<C: CancellationCheck>(
             operation_id,
             &opened,
             archive_key,
+            availability,
             cancellation,
         ),
         ReceiverState::VerifiedTemp => recover_verified_temp(
@@ -56,9 +63,10 @@ pub(crate) fn complete_or_recover<C: CancellationCheck>(
             operation_id,
             &opened,
             archive_key,
+            availability,
             cancellation,
         ),
-        ReceiverState::Available => finish_available(repository, files, operation_id),
+        ReceiverState::Available => finish_available(repository, files, operation_id, availability),
         ReceiverState::UnavailableResend => {
             let asset_id = opened
                 .manifest()
@@ -79,7 +87,9 @@ pub(crate) fn recover_available(
     repository: &OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
+    availability: &mut impl AvailabilityCheck,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
+    require_available(availability)?;
     if repository
         .receiver_state(operation_id)
         .map_err(map_repository_error)?
@@ -87,15 +97,16 @@ pub(crate) fn recover_available(
     {
         return Err(ReceiverLifecycleError::Conflict);
     }
-    finish_available(repository, files, operation_id)
+    finish_available(repository, files, operation_id, availability)
 }
 
-fn complete_waiting<C: CancellationCheck>(
+fn complete_waiting<C: CancellationCheck, A: AvailabilityCheck>(
     repository: &mut OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
     opened: &OpenedManifest,
     archive_key: &ArchiveKey,
+    availability: &mut A,
     cancellation: &mut C,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
     let manifest = opened.manifest();
@@ -120,9 +131,17 @@ fn complete_waiting<C: CancellationCheck>(
     files
         .decrypt_to_unverified_temp(asset_id, manifest, cancellation)
         .map_err(map_file_error)?;
+    if let Err(error) = require_available(availability) {
+        let _ = files.remove_plaintext_orphan(asset_id);
+        return Err(error);
+    }
     if let Err(error) = repository.mark_verified_temp(operation_id) {
         let _ = files.remove_plaintext_orphan(asset_id);
         return Err(map_repository_error(error));
+    }
+    if let Err(error) = require_available(availability) {
+        let _ = files.remove_plaintext_orphan(asset_id);
+        return Err(error);
     }
     files
         .promote_verified_plaintext(asset_id)
@@ -136,16 +155,18 @@ fn complete_waiting<C: CancellationCheck>(
             .map_err(|_| ReceiverLifecycleError::InvalidInput)?,
         asset_id,
         archive_key,
+        availability,
         cancellation,
     )
 }
 
-fn recover_verified_temp<C: CancellationCheck>(
+fn recover_verified_temp<C: CancellationCheck, A: AvailabilityCheck>(
     repository: &mut OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
     opened: &OpenedManifest,
     archive_key: &ArchiveKey,
+    availability: &mut A,
     cancellation: &mut C,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
     let manifest = opened.manifest();
@@ -157,6 +178,11 @@ fn recover_verified_temp<C: CancellationCheck>(
         .map_err(map_file_error)?
     {
         VerifiedPlaintextState::Temp => {
+            if let Err(error) = require_available(availability) {
+                let _ = files.remove_unavailable_plaintext(asset_id);
+                let _ = files.remove_archive_orphans(asset_id);
+                return Err(error);
+            }
             files
                 .remove_archive_orphans(asset_id)
                 .map_err(map_file_error)?;
@@ -172,6 +198,7 @@ fn recover_verified_temp<C: CancellationCheck>(
                     .map_err(|_| ReceiverLifecycleError::InvalidInput)?,
                 asset_id,
                 archive_key,
+                availability,
                 cancellation,
             )
         }
@@ -191,6 +218,7 @@ fn recover_verified_temp<C: CancellationCheck>(
                 operation_id,
                 opened,
                 archive_key,
+                availability,
                 cancellation,
             )
         }
@@ -198,24 +226,37 @@ fn recover_verified_temp<C: CancellationCheck>(
     }
 }
 
-fn finish_verified_plaintext<C: CancellationCheck>(
+#[allow(clippy::too_many_arguments, reason = "one fixed receiver transition")]
+fn finish_verified_plaintext<C: CancellationCheck, A: AvailabilityCheck>(
     repository: &mut OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
     conversation_id: CanonicalUuid,
     asset_id: CanonicalUuid,
     archive_key: &ArchiveKey,
+    availability: &mut A,
     cancellation: &mut C,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
+    if let Err(error) = require_available(availability) {
+        let _ = files.remove_unavailable_plaintext(asset_id);
+        let _ = files.remove_archive_orphans(asset_id);
+        return Err(error);
+    }
     let archived = files
         .create_verified_archive(conversation_id, asset_id, archive_key, cancellation)
         .map_err(map_file_error)?;
+    if let Err(error) = require_available(availability) {
+        let _ = files.remove_unavailable_plaintext(asset_id);
+        let _ = files.remove_archive_orphans(asset_id);
+        return Err(error);
+    }
     repository
         .commit_available(operation_id, &archived.verified)
         .map_err(map_repository_error)?;
     files
         .cleanup_available_transport(asset_id)
         .map_err(map_file_error)?;
+    require_available(availability)?;
     if files
         .verified_plaintext_state(asset_id)
         .map_err(map_file_error)?
@@ -233,7 +274,9 @@ fn finish_available(
     repository: &OperationRepository,
     files: &mut PrivateFileStore,
     operation_id: CanonicalUuid,
+    availability: &mut impl AvailabilityCheck,
 ) -> Result<AvailableArchive, ReceiverLifecycleError> {
+    require_available(availability)?;
     let available = repository
         .load_available(operation_id)
         .map_err(map_repository_error)?
@@ -249,10 +292,21 @@ fn finish_available(
         .cleanup_available_transport(asset_id)
         .map_err(map_file_error)?;
     files.open_archive_file(asset_id).map_err(map_file_error)?;
+    require_available(availability)?;
     Ok(AvailableArchive {
         path: archive_path,
         descriptor: available.descriptor,
     })
+}
+
+fn require_available(
+    availability: &mut impl AvailabilityCheck,
+) -> Result<(), ReceiverLifecycleError> {
+    if availability.is_available() {
+        Ok(())
+    } else {
+        Err(ReceiverLifecycleError::Unavailable)
+    }
 }
 
 pub(crate) fn expire_waiting_and_cleanup(
@@ -336,6 +390,29 @@ mod tests {
     use crate::operation_repository::ReceiverCommit;
     use crate::private_files::PrivateFileStore;
     use crate::sealed_manifest::{SEALED_BYTES, SealedManifest};
+
+    struct AlwaysAvailable;
+
+    impl AvailabilityCheck for AlwaysAvailable {
+        fn is_available(&mut self) -> bool {
+            true
+        }
+    }
+
+    struct LockAfter {
+        remaining_available_checks: u8,
+    }
+
+    impl AvailabilityCheck for LockAfter {
+        fn is_available(&mut self) -> bool {
+            if self.remaining_available_checks == 0 {
+                false
+            } else {
+                self.remaining_available_checks -= 1;
+                true
+            }
+        }
+    }
 
     fn uuid(value: u8) -> Result<CanonicalUuid, ReceiverLifecycleError> {
         CanonicalUuid::from_network_bytes([value; 16])
@@ -426,12 +503,14 @@ mod tests {
     }
 
     fn assert_archive(mut fixture: Fixture) -> Result<(), ReceiverLifecycleError> {
+        let mut availability = AlwaysAvailable;
         let available = complete_or_recover(
             &mut fixture.repository,
             &mut fixture.files,
             fixture.operation_id,
             fixture.opened,
             &fixture.archive_key,
+            &mut availability,
             &mut NeverCancelled,
         )?;
         inspect_available(
@@ -591,10 +670,12 @@ mod tests {
             .commit_available(fixture.operation_id, &archived.verified)
             .map_err(map_repository_error)?;
         drop(fixture.opened);
+        let mut availability = AlwaysAvailable;
         let available = recover_available(
             &fixture.repository,
             &mut fixture.files,
             fixture.operation_id,
+            &mut availability,
         )?;
         inspect_available(
             &fixture.root,
@@ -615,6 +696,7 @@ mod tests {
             .repository
             .mark_verified_temp(fixture.operation_id)
             .map_err(map_repository_error)?;
+        let mut availability = AlwaysAvailable;
         assert_eq!(
             complete_or_recover(
                 &mut fixture.repository,
@@ -622,10 +704,49 @@ mod tests {
                 fixture.operation_id,
                 fixture.opened,
                 &fixture.archive_key,
+                &mut availability,
                 &mut NeverCancelled,
             )
             .err(),
             Some(ReceiverLifecycleError::Unavailable)
+        );
+        assert!(!fixture.files.archive_path(uuid(2)?).exists());
+        std::fs::remove_dir_all(&fixture.root).map_err(|_| ReceiverLifecycleError::Io)
+    }
+
+    #[test]
+    fn relock_before_plaintext_promotion_cleans_and_returns_unavailable()
+    -> Result<(), ReceiverLifecycleError> {
+        let mut fixture = fixture("relock-before-promotion")?;
+        let mut availability = LockAfter {
+            remaining_available_checks: 2,
+        };
+        assert_eq!(
+            complete_or_recover(
+                &mut fixture.repository,
+                &mut fixture.files,
+                fixture.operation_id,
+                fixture.opened,
+                &fixture.archive_key,
+                &mut availability,
+                &mut NeverCancelled,
+            )
+            .err(),
+            Some(ReceiverLifecycleError::Unavailable)
+        );
+        assert_eq!(
+            fixture
+                .repository
+                .receiver_state(fixture.operation_id)
+                .map_err(map_repository_error)?,
+            Some(ReceiverState::VerifiedTemp)
+        );
+        assert_eq!(
+            fixture
+                .files
+                .verified_plaintext_state(uuid(2)?)
+                .map_err(map_file_error)?,
+            VerifiedPlaintextState::Missing
         );
         assert!(!fixture.files.archive_path(uuid(2)?).exists());
         std::fs::remove_dir_all(&fixture.root).map_err(|_| ReceiverLifecycleError::Io)
@@ -656,15 +777,19 @@ mod tests {
             Some(ReceiverLifecycleError::Conflict)
         );
         assert_eq!(
-            complete_or_recover(
-                &mut fixture.repository,
-                &mut fixture.files,
-                fixture.operation_id,
-                fixture.opened,
-                &fixture.archive_key,
-                &mut NeverCancelled,
-            )
-            .err(),
+            {
+                let mut availability = AlwaysAvailable;
+                complete_or_recover(
+                    &mut fixture.repository,
+                    &mut fixture.files,
+                    fixture.operation_id,
+                    fixture.opened,
+                    &fixture.archive_key,
+                    &mut availability,
+                    &mut NeverCancelled,
+                )
+                .err()
+            },
             Some(ReceiverLifecycleError::Unavailable)
         );
         std::fs::remove_dir_all(&fixture.root).map_err(|_| ReceiverLifecycleError::Io)

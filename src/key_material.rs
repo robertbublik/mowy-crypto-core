@@ -63,6 +63,10 @@ impl RootKeyMaterial {
         &self.0
     }
 
+    pub(crate) fn from_protected_storage(material: &[u8; ROOT_KEY_MATERIAL_BYTES]) -> Self {
+        Self(*material)
+    }
+
     pub(crate) fn identity_seed(&self) -> &[u8] {
         &self.0[..KEY_BYTES]
     }

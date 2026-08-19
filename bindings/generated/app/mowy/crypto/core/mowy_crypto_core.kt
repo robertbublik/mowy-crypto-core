@@ -612,6 +612,104 @@ internal open class UniffiForeignFutureResultVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceMowyCancellationMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`word0`: Long,`word1`: Long,`word2`: Long,`word3`: Long,`word4`: Long,`word5`: Long,`word6`: Long,`word7`: Long,`word8`: Long,`word9`: Long,`word10`: Long,`word11`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`token`: Long,`index`: Byte,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`token`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "isCancelled")
+internal open class UniffiVTableCallbackInterfaceMowyCancellation(
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `isCancelled`: UniffiCallbackInterfaceMowyCancellationMethod0? = null,
+) : Structure() {
+    class UniffiByValue(
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `isCancelled`: UniffiCallbackInterfaceMowyCancellationMethod0? = null,
+    ): UniffiVTableCallbackInterfaceMowyCancellation(`uniffiFree`,`uniffiClone`,`isCancelled`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceMowyCancellation) {
+        `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `isCancelled` = other.`isCancelled`
+    }
+
+}
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "protectedDataAvailable", "keyState", "installationMarkerExists", "databaseExists", "prepareNamespaces", "commitCompanions", "storeNew", "beginLoad", "loadWord", "finishLoad")
+internal open class UniffiVTableCallbackInterfaceNativeProtectedKeyStore(
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `protectedDataAvailable`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0? = null,
+    @JvmField internal var `keyState`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1? = null,
+    @JvmField internal var `installationMarkerExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2? = null,
+    @JvmField internal var `databaseExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3? = null,
+    @JvmField internal var `prepareNamespaces`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4? = null,
+    @JvmField internal var `commitCompanions`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5? = null,
+    @JvmField internal var `storeNew`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6? = null,
+    @JvmField internal var `beginLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7? = null,
+    @JvmField internal var `loadWord`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8? = null,
+    @JvmField internal var `finishLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9? = null,
+) : Structure() {
+    class UniffiByValue(
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `protectedDataAvailable`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0? = null,
+        `keyState`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1? = null,
+        `installationMarkerExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2? = null,
+        `databaseExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3? = null,
+        `prepareNamespaces`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4? = null,
+        `commitCompanions`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5? = null,
+        `storeNew`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6? = null,
+        `beginLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7? = null,
+        `loadWord`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8? = null,
+        `finishLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9? = null,
+    ): UniffiVTableCallbackInterfaceNativeProtectedKeyStore(`uniffiFree`,`uniffiClone`,`protectedDataAvailable`,`keyState`,`installationMarkerExists`,`databaseExists`,`prepareNamespaces`,`commitCompanions`,`storeNew`,`beginLoad`,`loadWord`,`finishLoad`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceNativeProtectedKeyStore) {
+        `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `protectedDataAvailable` = other.`protectedDataAvailable`
+        `keyState` = other.`keyState`
+        `installationMarkerExists` = other.`installationMarkerExists`
+        `databaseExists` = other.`databaseExists`
+        `prepareNamespaces` = other.`prepareNamespaces`
+        `commitCompanions` = other.`commitCompanions`
+        `storeNew` = other.`storeNew`
+        `beginLoad` = other.`beginLoad`
+        `loadWord` = other.`loadWord`
+        `finishLoad` = other.`finishLoad`
+    }
+
+}
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
@@ -637,6 +735,30 @@ internal object IntegrityCheckingUniffiLib {
     }
     external fun uniffi_mowy_crypto_core_checksum_func_core_profile_version(
     ): Int
+    external fun uniffi_mowy_crypto_core_checksum_func_run_development_proof(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_protected_data_available(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_key_state(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_installation_marker_exists(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_database_exists(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_prepare_namespaces(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_commit_companions(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_store_new(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_begin_load(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_load_word(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_finish_load(
+    ): Int
     external fun ffi_mowy_crypto_core_uniffi_contract_version(
     ): Int
 
@@ -648,10 +770,18 @@ internal object UniffiLib {
 
     init {
         Native.register(UniffiLib::class.java, findLibraryName(componentName = "mowy_crypto_core"))
+        uniffiCallbackInterfaceMowyCancellation.register(this)
+        uniffiCallbackInterfaceNativeProtectedKeyStore.register(this)
 
     }
+    external fun uniffi_mowy_crypto_core_fn_init_callback_vtable_mowycancellation(`vtable`: UniffiVTableCallbackInterfaceMowyCancellation,
+    ): Unit
+    external fun uniffi_mowy_crypto_core_fn_init_callback_vtable_nativeprotectedkeystore(`vtable`: UniffiVTableCallbackInterfaceNativeProtectedKeyStore,
+    ): Unit
     external fun uniffi_mowy_crypto_core_fn_func_core_profile_version(uniffi_out_err: UniffiRustCallStatus,
     ): Int
+    external fun uniffi_mowy_crypto_core_fn_func_run_development_proof(`protectedStore`: Long,`cancellation`: Long,`now`: Long,`plaintextLength`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun ffi_mowy_crypto_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun ffi_mowy_crypto_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus,
@@ -774,6 +904,42 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_mowy_crypto_core_checksum_func_core_profile_version() != 39217) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mowy_crypto_core_checksum_func_run_development_proof() != 62088) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled() != 53474) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_protected_data_available() != 49026) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_key_state() != 59686) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_installation_marker_exists() != 21970) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_database_exists() != 11766) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_prepare_namespaces() != 62813) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_commit_companions() != 45077) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_store_new() != 58154) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_begin_load() != 12331) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_load_word() != 4939) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_finish_load() != 58172) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
 }
 
 /**
@@ -865,7 +1031,65 @@ object UniffiWithHandle
  *
  * @suppress
  * */
-object NoHandle
+object NoHandle// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterUByte: FfiConverter<UByte, Byte> {
+    override fun lift(value: Byte): UByte {
+        return value.toUByte()
+    }
+
+    fun lift(value: Int): UByte {
+        return value.toUByte()
+    }
+
+    override fun read(buf: ByteBuffer): UByte {
+        return lift(buf.get())
+    }
+
+    override fun lower(value: UByte): Byte {
+        return value.toByte()
+    }
+
+    override fun allocationSize(value: UByte) = 1UL
+
+    override fun write(value: UByte, buf: ByteBuffer) {
+        buf.put(value.toByte())
+    }
+}
 
 /**
  * @suppress
@@ -891,6 +1115,52 @@ public object FfiConverterUShort: FfiConverter<UShort, Short> {
 
     override fun write(value: UShort, buf: ByteBuffer) {
         buf.putShort(value.toShort())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterULong: FfiConverter<ULong, Long> {
+    override fun lift(value: Long): ULong {
+        return value.toULong()
+    }
+
+    override fun read(buf: ByteBuffer): ULong {
+        return lift(buf.getLong())
+    }
+
+    override fun lower(value: ULong): Long {
+        return value.toLong()
+    }
+
+    override fun allocationSize(value: ULong) = 8UL
+
+    override fun write(value: ULong, buf: ByteBuffer) {
+        buf.putLong(value.toLong())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterBoolean: FfiConverter<Boolean, Byte> {
+    override fun lift(value: Byte): Boolean {
+        return value.toInt() != 0
+    }
+
+    override fun read(buf: ByteBuffer): Boolean {
+        return lift(buf.get())
+    }
+
+    override fun lower(value: Boolean): Byte {
+        return if (value) 1.toByte() else 0.toByte()
+    }
+
+    override fun allocationSize(value: Boolean) = 1UL
+
+    override fun write(value: Boolean, buf: ByteBuffer) {
+        buf.put(lower(value))
     }
 }
 
@@ -949,12 +1219,532 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
         buf.putInt(byteBuf.limit())
         buf.put(byteBuf)
     }
+}
+
+
+
+data class MowyProofReceipt (
+    var `proofId`: kotlin.String
+    ,
+    var `plaintextLength`: kotlin.ULong
+    ,
+    var `ciphertextLength`: kotlin.ULong
+    ,
+    var `ciphertextSha256`: kotlin.String
+    ,
+    var `archiveSha256`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyProofReceipt: FfiConverterRustBuffer<MowyProofReceipt> {
+    override fun read(buf: ByteBuffer): MowyProofReceipt {
+        return MowyProofReceipt(
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyProofReceipt) = (
+            FfiConverterString.allocationSize(value.`proofId`) +
+            FfiConverterULong.allocationSize(value.`plaintextLength`) +
+            FfiConverterULong.allocationSize(value.`ciphertextLength`) +
+            FfiConverterString.allocationSize(value.`ciphertextSha256`) +
+            FfiConverterString.allocationSize(value.`archiveSha256`)
+    )
+
+    override fun write(value: MowyProofReceipt, buf: ByteBuffer) {
+            FfiConverterString.write(value.`proofId`, buf)
+            FfiConverterULong.write(value.`plaintextLength`, buf)
+            FfiConverterULong.write(value.`ciphertextLength`, buf)
+            FfiConverterString.write(value.`ciphertextSha256`, buf)
+            FfiConverterString.write(value.`archiveSha256`, buf)
+    }
+}
+
+
+
+data class MowyProofResult (
+    var `code`: MowyCoreCode
+    ,
+    var `receipt`: MowyProofReceipt?
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyProofResult: FfiConverterRustBuffer<MowyProofResult> {
+    override fun read(buf: ByteBuffer): MowyProofResult {
+        return MowyProofResult(
+            FfiConverterTypeMowyCoreCode.read(buf),
+            FfiConverterOptionalTypeMowyProofReceipt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyProofResult) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`) +
+            FfiConverterOptionalTypeMowyProofReceipt.allocationSize(value.`receipt`)
+    )
+
+    override fun write(value: MowyProofResult, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+            FfiConverterOptionalTypeMowyProofReceipt.write(value.`receipt`, buf)
+    }
+}
+
+
+
+data class NativeBridgeResponse (
+    var `code`: MowyCoreCode
+    ,
+    var `flag`: kotlin.Boolean
+    ,
+    var `number`: kotlin.ULong
+    ,
+    var `keyState`: NativeProtectedKeyState
+    ,
+    var `path`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNativeBridgeResponse: FfiConverterRustBuffer<NativeBridgeResponse> {
+    override fun read(buf: ByteBuffer): NativeBridgeResponse {
+        return NativeBridgeResponse(
+            FfiConverterTypeMowyCoreCode.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterTypeNativeProtectedKeyState.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: NativeBridgeResponse) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`) +
+            FfiConverterBoolean.allocationSize(value.`flag`) +
+            FfiConverterULong.allocationSize(value.`number`) +
+            FfiConverterTypeNativeProtectedKeyState.allocationSize(value.`keyState`) +
+            FfiConverterString.allocationSize(value.`path`)
+    )
+
+    override fun write(value: NativeBridgeResponse, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+            FfiConverterBoolean.write(value.`flag`, buf)
+            FfiConverterULong.write(value.`number`, buf)
+            FfiConverterTypeNativeProtectedKeyState.write(value.`keyState`, buf)
+            FfiConverterString.write(value.`path`, buf)
+    }
+}
+
+
+
+
+enum class MowyCoreCode {
+
+    SUCCESS,
+    INVALID_INPUT,
+    UNAVAILABLE,
+    CONFLICT,
+    STORAGE,
+    AUTHENTICATION,
+    CRYPTOGRAPHY,
+    CANCELLED;
+
+
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyCoreCode: FfiConverterRustBuffer<MowyCoreCode> {
+    override fun read(buf: ByteBuffer) = try {
+        MowyCoreCode.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: MowyCoreCode) = 4UL
+
+    override fun write(value: MowyCoreCode, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class NativeProtectedKeyState {
+
+    ABSENT,
+    PRESENT,
+    PARTIAL;
+
+
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNativeProtectedKeyState: FfiConverterRustBuffer<NativeProtectedKeyState> {
+    override fun read(buf: ByteBuffer) = try {
+        NativeProtectedKeyState.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: NativeProtectedKeyState) = 4UL
+
+    override fun write(value: NativeProtectedKeyState, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+
+public interface MowyCancellation {
+
+    fun `isCancelled`(): NativeBridgeResponse
+
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceMowyCancellation {
+    internal object `isCancelled`: UniffiCallbackInterfaceMowyCancellationMethod0 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeMowyCancellation.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`isCancelled`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeMowyCancellation.handleMap.remove(handle)
+        }
+    }
+
+    internal object uniffiClone: UniffiCallbackInterfaceClone {
+        override fun callback(handle: Long): Long {
+            return FfiConverterTypeMowyCancellation.handleMap.clone(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceMowyCancellation.UniffiByValue(
+        uniffiFree,
+        uniffiClone,
+        `isCancelled`,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mowy_crypto_core_fn_init_callback_vtable_mowycancellation(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeMowyCancellation: FfiConverterCallbackInterface<MowyCancellation>()
+
+
+
+
+
+public interface NativeProtectedKeyStore {
+
+    fun `protectedDataAvailable`(): NativeBridgeResponse
+
+    fun `keyState`(): NativeBridgeResponse
+
+    fun `installationMarkerExists`(): NativeBridgeResponse
+
+    fun `databaseExists`(): NativeBridgeResponse
+
+    fun `prepareNamespaces`(): NativeBridgeResponse
+
+    fun `commitCompanions`(): NativeBridgeResponse
+
+    fun `storeNew`(`word0`: kotlin.ULong, `word1`: kotlin.ULong, `word2`: kotlin.ULong, `word3`: kotlin.ULong, `word4`: kotlin.ULong, `word5`: kotlin.ULong, `word6`: kotlin.ULong, `word7`: kotlin.ULong, `word8`: kotlin.ULong, `word9`: kotlin.ULong, `word10`: kotlin.ULong, `word11`: kotlin.ULong): NativeBridgeResponse
+
+    fun `beginLoad`(): NativeBridgeResponse
+
+    fun `loadWord`(`token`: kotlin.ULong, `index`: kotlin.UByte): NativeBridgeResponse
+
+    fun `finishLoad`(`token`: kotlin.ULong): NativeBridgeResponse
+
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceNativeProtectedKeyStore {
+    internal object `protectedDataAvailable`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`protectedDataAvailable`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `keyState`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`keyState`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `installationMarkerExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`installationMarkerExists`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `databaseExists`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`databaseExists`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `prepareNamespaces`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`prepareNamespaces`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `commitCompanions`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`commitCompanions`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `storeNew`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6 {
+        override fun callback(`uniffiHandle`: Long,`word0`: Long,`word1`: Long,`word2`: Long,`word3`: Long,`word4`: Long,`word5`: Long,`word6`: Long,`word7`: Long,`word8`: Long,`word9`: Long,`word10`: Long,`word11`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`storeNew`(
+                    FfiConverterULong.lift(`word0`),
+                    FfiConverterULong.lift(`word1`),
+                    FfiConverterULong.lift(`word2`),
+                    FfiConverterULong.lift(`word3`),
+                    FfiConverterULong.lift(`word4`),
+                    FfiConverterULong.lift(`word5`),
+                    FfiConverterULong.lift(`word6`),
+                    FfiConverterULong.lift(`word7`),
+                    FfiConverterULong.lift(`word8`),
+                    FfiConverterULong.lift(`word9`),
+                    FfiConverterULong.lift(`word10`),
+                    FfiConverterULong.lift(`word11`),
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `beginLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`beginLoad`(
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `loadWord`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8 {
+        override fun callback(`uniffiHandle`: Long,`token`: Long,`index`: Byte,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`loadWord`(
+                    FfiConverterULong.lift(`token`),
+                    FfiConverterUByte.lift(`index`),
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `finishLoad`: UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9 {
+        override fun callback(`uniffiHandle`: Long,`token`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNativeProtectedKeyStore.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`finishLoad`(
+                    FfiConverterULong.lift(`token`),
+                )
+            }
+            val writeReturn = { value: NativeBridgeResponse -> uniffiOutReturn.setValue(FfiConverterTypeNativeBridgeResponse.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeNativeProtectedKeyStore.handleMap.remove(handle)
+        }
+    }
+
+    internal object uniffiClone: UniffiCallbackInterfaceClone {
+        override fun callback(handle: Long): Long {
+            return FfiConverterTypeNativeProtectedKeyStore.handleMap.clone(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceNativeProtectedKeyStore.UniffiByValue(
+        uniffiFree,
+        uniffiClone,
+        `protectedDataAvailable`,
+        `keyState`,
+        `installationMarkerExists`,
+        `databaseExists`,
+        `prepareNamespaces`,
+        `commitCompanions`,
+        `storeNew`,
+        `beginLoad`,
+        `loadWord`,
+        `finishLoad`,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mowy_crypto_core_fn_init_callback_vtable_nativeprotectedkeystore(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeNativeProtectedKeyStore: FfiConverterCallbackInterface<NativeProtectedKeyStore>()
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeMowyProofReceipt: FfiConverterRustBuffer<MowyProofReceipt?> {
+    override fun read(buf: ByteBuffer): MowyProofReceipt? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeMowyProofReceipt.read(buf)
+    }
+
+    override fun allocationSize(value: MowyProofReceipt?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeMowyProofReceipt.allocationSize(value)
+        }
+    }
+
+    override fun write(value: MowyProofReceipt?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeMowyProofReceipt.write(value, buf)
+        }
+    }
 } fun `coreProfileVersion`(): kotlin.UShort {
             return FfiConverterUShort.lift(
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_mowy_crypto_core_fn_func_core_profile_version(
 
         _status)
+}
+    )
+    }
+
+ fun `runDevelopmentProof`(`protectedStore`: NativeProtectedKeyStore, `cancellation`: MowyCancellation, `now`: kotlin.ULong, `plaintextLength`: kotlin.ULong): MowyProofResult {
+            return FfiConverterTypeMowyProofResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_run_development_proof(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterTypeMowyCancellation.lower(`cancellation`),FfiConverterULong.lower(`now`),FfiConverterULong.lower(`plaintextLength`),_status)
 }
     )
     }

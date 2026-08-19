@@ -1,30 +1,42 @@
 # Mowy crypto core
 
-Status: P2 implementation active; the pinned build boundary is implemented and
-the protected device-key slice is under review. No secret-bearing bridge
-operation exists yet.
+Status: P2 implementation active. Commits 1 through 6 are implemented on the
+package branch. The signed Android/iOS development proof, semantic UniFFI
+façade, parser fuzz harness, and physical evidence are prepared for commits 7
+and 8, but the required two-device relay surface remains open. This repository
+is not independently reviewed or production-ready.
 
-This repository is the planned public, permissively licensed native
-cryptographic core for Mowy Package P2. It will contain the byte-exact sealed
-manifest, streaming attachment envelope, device-key operations, durable native
-state, public disposable vectors, generated UniFFI bindings, and their tests.
+This public, permissively licensed repository owns the native implementation
+mechanics for Mowy Package P2: byte-exact signed key bundles and sealed
+manifests, the streaming attachment envelope, protected device-key adapters,
+durable operation state, private file and archive lifecycles, public disposable
+vectors, generated UniFFI bindings, proof apps, fuzz targets, hostile reviews,
+and reproducible build/device evidence.
 The private application repository owns product UI, account and service
 configuration, hosted delivery, and real user data.
 
-The governing design is maintained in the private application repository. The
-repository is public, private vulnerability reporting is enabled, and the
-throwaway physical-device feasibility spike passed on 2026-08-19. Complete
-public format documentation, vectors, dependency evidence, licences, notices,
-and exact application revision linkage remain P2 closeout requirements.
+The private application repository owns the approved product requirements,
+milestone/package status, architecture and decision authority, requirement
+traceability, governance gates, residual-risk acceptance, and the handoff to
+later product integration. Low-level implementation truth is deliberately kept
+here so a reviewer can reproduce it without access to service credentials or
+product data.
 
 ## Security boundary
 
 The core keeps private keys, attachment keys, archive keys, opened manifests,
-and plaintext byte buffers behind a narrow native API. Rust key generation and
-the platform protected-storage adapters now exist, but they are not connected
-to an application bridge and have not been independently reviewed. This
-repository currently makes no confidentiality, interoperability, audit, or
-production-readiness claim.
+and plaintext byte buffers behind a narrow native API. The current development
+façade runs one deterministic, self-contained native proof and returns only a
+coarse code plus public lengths and digests. Twelve fixed-width words carry the
+96-byte root item only across the trusted Rust-to-Swift/Kotlin protected-store
+callback; no JavaScript, product API, log, receipt, or persisted SQLite row
+receives them.
+
+That proof is not the package's required interoperability result. It currently
+publishes, pins, seals, opens, decrypts, archives, and cleans up on one device.
+The approved device-B-publication/device-A-send/device-B-receive relay needs an
+additional narrowly reviewed semantic ABI. Until that gap is resolved, the P2
+package must not be marked completed or merged as a finished foundation.
 
 Even after P2 implementation, this core alone will not provide:
 
@@ -61,6 +73,27 @@ advisories/licences/sources with cargo-deny 0.20.2, and performs a clean build
 while the operating system denies network access. See
 `supply-chain/README.md` and `platform/README.md` for tool and environment
 details.
+
+The development-only parser fuzz targets have their own exact lockfile and
+corpus:
+
+```sh
+MOWY_CARGO_FUZZ_BIN=/path/to/cargo-fuzz scripts/check-fuzz.sh
+```
+
+See `fuzz/README.md` for the date-pinned nightly driver, bounds, current Apple
+AddressSanitizer linker limitation, and the distinction between a passing
+coverage-guided run and sanitizer evidence.
+
+## Repository and temporary paths
+
+All durable source, generated bindings, vectors, reviews, and evidence live in
+this checkout. `/private/tmp` was used only for disposable Rust toolchains,
+Cargo tools, derived build products, mutable fuzz corpora, and copies of public
+proof receipts. It kept host-global tooling and generated artifacts out of the
+repository and never served as the source checkout. The durable repository path
+used for this work is the normal workspace checkout named
+`mowy-crypto-core/`, outside `/private/tmp`.
 
 ## Licence
 

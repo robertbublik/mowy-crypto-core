@@ -18,6 +18,8 @@ const RECEIVER_AVAILABLE: i64 = 3;
 const RECEIVER_UNAVAILABLE: i64 = 4;
 const OUTCOME_RESEND: i64 = 1;
 const WAITING_SECONDS: u64 = 24 * 60 * 60;
+const OPERATION_SCHEMA_VERSION: i64 = 2;
+const PREVIOUS_OPERATION_SCHEMA_VERSION: i64 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum OperationRepositoryError {
@@ -78,6 +80,15 @@ pub(crate) struct ExpiredOperation {
     pub(crate) asset_id: CanonicalUuid,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct DevelopmentProfile {
+    pub(crate) account_id: CanonicalUuid,
+    pub(crate) device_id: CanonicalUuid,
+    pub(crate) agreement_key_id: CanonicalUuid,
+    pub(crate) not_before: u64,
+    pub(crate) not_after: u64,
+}
+
 pub(crate) struct OperationRepository {
     connection: Connection,
 }
@@ -100,6 +111,26 @@ impl OperationRepository {
     }
 
     fn from_connection(connection: Connection) -> Result<Self, OperationRepositoryError> {
+        let schema_version: i64 = connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let existing_operation_tables: i64 = connection
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema
+                 WHERE type = 'table' AND name IN (
+                   'sender_operations', 'sealed_manifest_outbox',
+                   'receiver_operations', 'attachment_replay_ledger'
+                 )",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if existing_operation_tables != 0
+            && schema_version != OPERATION_SCHEMA_VERSION
+            && schema_version != PREVIOUS_OPERATION_SCHEMA_VERSION
+        {
+            return Err(OperationRepositoryError::Storage);
+        }
         connection
             .execute_batch(
                 "PRAGMA foreign_keys = ON;
@@ -154,7 +185,16 @@ impl OperationRepository {
                    sender_device_id BLOB NOT NULL CHECK(typeof(sender_device_id) = 'blob' AND length(sender_device_id) = 16 AND sender_device_id != zeroblob(16)),
                    operation_id BLOB NOT NULL UNIQUE REFERENCES receiver_operations(operation_id) ON DELETE CASCADE,
                    PRIMARY KEY(conversation_id, asset_id, sender_device_id)
-                 ) WITHOUT ROWID, STRICT;",
+                 ) WITHOUT ROWID, STRICT;
+                 CREATE TABLE IF NOT EXISTS development_profile (
+                   singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                   account_id BLOB NOT NULL CHECK(typeof(account_id) = 'blob' AND length(account_id) = 16 AND account_id != zeroblob(16)),
+                   device_id BLOB NOT NULL CHECK(typeof(device_id) = 'blob' AND length(device_id) = 16 AND device_id != zeroblob(16)),
+                   agreement_key_id BLOB NOT NULL CHECK(typeof(agreement_key_id) = 'blob' AND length(agreement_key_id) = 16 AND agreement_key_id != zeroblob(16)),
+                   not_before BLOB NOT NULL CHECK(typeof(not_before) = 'blob' AND length(not_before) = 8),
+                   not_after BLOB NOT NULL CHECK(typeof(not_after) = 'blob' AND length(not_after) = 8)
+                 ) STRICT;
+                 PRAGMA user_version = 2;",
             )
             .map_err(|_| OperationRepositoryError::Storage)?;
         Ok(Self { connection })
@@ -657,6 +697,85 @@ impl OperationRepository {
             .map_err(|_| OperationRepositoryError::Storage)?
             .map(decode_uuid)
             .transpose()
+    }
+
+    pub(crate) fn load_development_profile(
+        &self,
+    ) -> Result<Option<DevelopmentProfile>, OperationRepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT account_id, device_id, agreement_key_id, not_before, not_after
+                 FROM development_profile WHERE singleton = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                        row.get::<_, Vec<u8>>(3)?,
+                        row.get::<_, Vec<u8>>(4)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|_| OperationRepositoryError::Storage)?
+            .map(|row| {
+                Ok(DevelopmentProfile {
+                    account_id: decode_uuid(row.0)?,
+                    device_id: decode_uuid(row.1)?,
+                    agreement_key_id: decode_uuid(row.2)?,
+                    not_before: decode_u64(row.3)?,
+                    not_after: decode_u64(row.4)?,
+                })
+            })
+            .transpose()
+    }
+
+    pub(crate) fn create_development_profile(
+        &mut self,
+        profile: DevelopmentProfile,
+    ) -> Result<(), OperationRepositoryError> {
+        self.connection
+            .execute(
+                "INSERT INTO development_profile (
+                   singleton, account_id, device_id, agreement_key_id, not_before, not_after
+                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5)",
+                params![
+                    uuid_bytes(profile.account_id),
+                    uuid_bytes(profile.device_id),
+                    uuid_bytes(profile.agreement_key_id),
+                    u64_bytes(profile.not_before),
+                    u64_bytes(profile.not_after),
+                ],
+            )
+            .map(|_| ())
+            .map_err(|_| OperationRepositoryError::Conflict)
+    }
+
+    pub(crate) fn cleanup_development_proof(
+        &mut self,
+        sender_operation_id: CanonicalUuid,
+        receiver_operation_id: CanonicalUuid,
+    ) -> Result<(), OperationRepositoryError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        transaction
+            .execute(
+                "DELETE FROM receiver_operations WHERE operation_id = ?1",
+                params![uuid_bytes(receiver_operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        transaction
+            .execute(
+                "DELETE FROM sender_operations WHERE operation_id = ?1",
+                params![uuid_bytes(sender_operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)
     }
 }
 
@@ -1528,6 +1647,104 @@ mod tests {
         }
         assert!(lowered.contains("sealed_blob"));
         assert!(lowered.contains("strict"));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_unversioned_operation_schema_and_marks_current_schema()
+    -> Result<(), OperationRepositoryError> {
+        let repository = OperationRepository::in_memory()?;
+        let version: i64 = repository
+            .connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        assert_eq!(version, OPERATION_SCHEMA_VERSION);
+
+        let legacy = Connection::open_in_memory().map_err(|_| OperationRepositoryError::Storage)?;
+        legacy
+            .execute_batch("CREATE TABLE receiver_operations(legacy INTEGER);")
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        assert!(matches!(
+            OperationRepository::from_connection(legacy),
+            Err(OperationRepositoryError::Storage)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn migrates_v1_state_to_v2_without_rewriting_operation_rows()
+    -> Result<(), OperationRepositoryError> {
+        let path = std::env::temp_dir().join(format!(
+            "mowy-p2-operation-v1-migration-{}.sqlite3",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let operation_id = uuid(9)?;
+        {
+            let mut repository = OperationRepository::open(&path)?;
+            repository.begin_sender(operation_id, uuid(1)?, uuid(2)?, uuid(3)?)?;
+            repository.commit_sender_outbox(
+                operation_id,
+                &manifest(1, 2, 0x80)?,
+                &sealed(4, 0x90)?,
+            )?;
+            repository
+                .connection
+                .execute_batch(
+                    "DROP TABLE development_profile;
+                     PRAGMA user_version = 1;",
+                )
+                .map_err(|_| OperationRepositoryError::Storage)?;
+        }
+        {
+            let repository = OperationRepository::open(&path)?;
+            assert_eq!(
+                repository
+                    .load_sender_outbox(operation_id)?
+                    .ok_or(OperationRepositoryError::Storage)?
+                    .ciphertext_digest,
+                [0x80; DIGEST_BYTES]
+            );
+            assert!(repository.load_development_profile()?.is_none());
+            let version: i64 = repository
+                .connection
+                .query_row("PRAGMA user_version", [], |row| row.get(0))
+                .map_err(|_| OperationRepositoryError::Storage)?;
+            assert_eq!(version, OPERATION_SCHEMA_VERSION);
+        }
+        std::fs::remove_file(path).map_err(|_| OperationRepositoryError::Storage)
+    }
+
+    #[test]
+    fn development_profile_is_singleton_reloadable_and_public_only()
+    -> Result<(), OperationRepositoryError> {
+        let mut repository = OperationRepository::in_memory()?;
+        let profile = DevelopmentProfile {
+            account_id: uuid(1)?,
+            device_id: uuid(2)?,
+            agreement_key_id: uuid(3)?,
+            not_before: 1_780_000_000,
+            not_after: 1_782_592_000,
+        };
+        assert!(repository.load_development_profile()?.is_none());
+        repository.create_development_profile(profile)?;
+        assert_eq!(repository.load_development_profile()?, Some(profile));
+        assert_eq!(
+            repository.create_development_profile(profile).err(),
+            Some(OperationRepositoryError::Conflict)
+        );
+
+        let schema: String = repository
+            .connection
+            .query_row(
+                "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'development_profile'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        for forbidden in ["secret", "private", "attachment_key", "archive_key"] {
+            assert!(!schema.to_ascii_lowercase().contains(forbidden));
+        }
         Ok(())
     }
 }
