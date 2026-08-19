@@ -1,10 +1,11 @@
 # Mowy crypto core
 
-Status: P2 implementation active. Commits 1 through 8 are implemented on the
-package branch, including the signed Android/iOS development proof, semantic
-UniFFI façade, parser fuzz harness, and physical evidence. The required
-two-device relay surface remains open. This repository is not independently
-reviewed or production-ready.
+Status: P2 implementation active. The package branch now includes the bounded
+cross-device semantic façade, durable unopened receiver staging, a successful
+iPhone-to-Huawei relay/restart proof, and Linux AddressSanitizer fuzz evidence
+in addition to commits 1 through 8. Physical iOS mid-operation relock, the
+hazardous real-device fault matrix, and independent human review remain open.
+This repository is not production-ready.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed
@@ -25,18 +26,21 @@ product data.
 ## Security boundary
 
 The core keeps private keys, attachment keys, archive keys, opened manifests,
-and plaintext byte buffers behind a narrow native API. The current development
-façade runs one deterministic, self-contained native proof and returns only a
-coarse code plus public lengths and digests. Twelve fixed-width words carry the
-96-byte root item only across the trusted Rust-to-Swift/Kotlin protected-store
-callback; no JavaScript, product API, log, receipt, or persisted SQLite row
-receives them.
+and plaintext byte buffers behind a narrow native API. The development façade
+can run the original self-contained fixture proof or five fixed lifecycle
+operations: publish a public bundle, prepare the one bounded public fixture,
+stage its opaque transfer, resume by an opaque operation ID, and clean the
+exact sender artifacts. It returns only coarse codes, public descriptors,
+opaque sealed bytes, exact generated app-private paths after durable commits,
+and public lengths/digests. It accepts no arbitrary path, key, nonce,
+randomness, SQL, or general cryptographic operation.
 
-That proof is not the package's required interoperability result. It currently
-publishes, pins, seals, opens, decrypts, archives, and cleans up on one device.
-The approved device-B-publication/device-A-send/device-B-receive relay needs an
-additional narrowly reviewed semantic ABI. Until that gap is resolved, the P2
-package must not be marked completed or merged as a finished foundation.
+Twelve fixed-width words carry the 96-byte root item only across the trusted
+Rust-to-Swift/Kotlin protected-store callback; no JavaScript, product API, log,
+receipt, or persisted SQLite row receives them. The receiver stages the exact
+sealed blob unopened, survives process termination, and reconstructs every
+input except the opaque receiver operation ID from durable native state. See
+`reviews/c7-01-semantic-contract.md` and `evidence/commit-9.md`.
 
 Even after P2 implementation, this core alone will not provide:
 

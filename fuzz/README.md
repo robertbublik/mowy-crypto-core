@@ -47,14 +47,19 @@ The script copies the committed seeds to a uniquely named temporary directory
 because libFuzzer evolves the supplied corpus in place. It removes that work
 directory on exit; only the two intentional text seeds per target are durable.
 
-## Current sanitizer limitation
+## Sanitizer evidence and Apple limitation
 
 Coverage-guided runs pass on Apple Silicon with `--sanitizer none`. The default
 AddressSanitizer build on the pinned 2026-08-19 nightly reaches the final link
 but Apple's linker rejects initializer metadata in the pinned `ctor 0.9.1` and
 `libsodium-rs 0.2.4` objects (`initializer pointer has no target`). Disabling
-dead-code stripping does not resolve it. This is recorded as an open host-tool
-limitation, not a passing sanitizer claim; the independent review should rerun
-these exact targets with ASan in a compatible Linux environment or approve a
-reviewed toolchain-only workaround. Production dependency pins must not move to
-make the development fuzzer link.
+dead-code stripping does not resolve that host-specific failure.
+
+The exact same repository source, lockfiles, vendored graph, corpora,
+cargo-fuzz 0.13.2 driver, and `nightly-2026-08-19` compiler subsequently passed
+10,000 iterations per target with `--sanitizer address` in an aarch64 Linux
+container. The repository was mounted read-only and target/corpus mutations
+were disposable. Exact image/compiler metadata, coverage counts, RSS, and the
+absence of crash artifacts are recorded in `evidence/commit-9.md`. This closes
+the missing ASan execution; it does not make fuzzing proof of memory safety or
+independent assurance. Production dependency pins did not change.

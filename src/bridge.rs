@@ -16,13 +16,17 @@ use crate::attachment_manifest::{
     AttachmentManifestError, DIGEST_BYTES, canonical_ciphertext_length,
 };
 use crate::key_bundle::{
-    CanonicalUuid, KeyBundleError, KeyValidityWindow, PublishedKeyRepository, sign_current_bundle,
+    CanonicalUuid, DeviceKeyBundle, KeyBundleError, KeyValidityWindow, PublishedKeyRepository,
+    sign_current_bundle,
 };
 use crate::key_material::{
     CompanionState, InitializationState, KeyMaterialError, ProtectedKeyState, ProtectedKeyStore,
     ROOT_KEY_MATERIAL_BYTES, RootKeyMaterial, classify_initialization, initialize,
 };
-use crate::operation_repository::{OperationRepository, OperationRepositoryError, ReceiverCommit};
+use crate::operation_repository::{
+    DevelopmentProfile, DevelopmentTransferInbox, DevelopmentTransferState, OperationRepository,
+    OperationRepositoryError, ReceiverCommit, ReceiverState,
+};
 use crate::private_files::{PrivateFileError, PrivateFileStore};
 use crate::receiver_lifecycle::{
     AvailabilityCheck, ReceiverLifecycleError, complete_or_recover, recover_available,
@@ -34,6 +38,8 @@ use crate::sealed_manifest::{
 const PROOF_DATABASE_NAME: &str = "operations.sqlite3";
 const ROOT_WORDS: usize = ROOT_KEY_MATERIAL_BYTES / 8;
 const FILE_MODE_MASK: u32 = 0o077;
+const DEVELOPMENT_TRANSFER_SECONDS: u64 = 24 * 60 * 60;
+const MAXIMUM_DEVELOPMENT_PLAINTEXT_BYTES: u64 = 25 * 1_024 * 1_024;
 
 static PROOF_LOCK: Mutex<()> = Mutex::new(());
 
@@ -99,6 +105,55 @@ pub struct MowyProofResult {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyPublicBundle {
+    pub account_id: String,
+    pub device_id: String,
+    pub agreement_key_id: String,
+    pub identity_public_key: String,
+    pub agreement_public_key: String,
+    pub not_before: u64,
+    pub not_after: u64,
+    pub signature: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyPublicBundleResult {
+    pub code: MowyCoreCode,
+    pub bundle: Option<MowyPublicBundle>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyDevelopmentTransfer {
+    pub sender_operation_id: String,
+    pub receiver_operation_id: String,
+    pub conversation_id: String,
+    pub asset_id: String,
+    pub recipient_key_id: String,
+    pub sealed_manifest: String,
+    pub plaintext_length: u64,
+    pub ciphertext_length: u64,
+    pub ciphertext_sha256: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyPreparedTransferResult {
+    pub code: MowyCoreCode,
+    pub transfer: Option<MowyDevelopmentTransfer>,
+    pub ciphertext_source_path: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyStagedTransferResult {
+    pub code: MowyCoreCode,
+    pub ciphertext_destination_path: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MowyCodeResult {
+    pub code: MowyCoreCode,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeBridgeResponse {
     pub code: MowyCoreCode,
     pub flag: bool,
@@ -157,6 +212,733 @@ pub trait NativeProtectedKeyStore: Send + Sync {
 
 pub trait MowyCancellation: Send + Sync {
     fn is_cancelled(&self) -> NativeBridgeResponse;
+}
+
+pub fn publish_development_bundle(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+) -> MowyPublicBundleResult {
+    match publish_development_bundle_inner(protected_store, now) {
+        Ok(bundle) => MowyPublicBundleResult {
+            code: MowyCoreCode::Success,
+            bundle: Some(bundle),
+        },
+        Err(error) => MowyPublicBundleResult {
+            code: map_error_code(error),
+            bundle: None,
+        },
+    }
+}
+
+pub fn prepare_development_transfer(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    cancellation: Box<dyn MowyCancellation>,
+    now: u64,
+    plaintext_length: u64,
+    recipient_bundle: MowyPublicBundle,
+) -> MowyPreparedTransferResult {
+    match prepare_development_transfer_inner(
+        protected_store,
+        cancellation,
+        now,
+        plaintext_length,
+        recipient_bundle,
+    ) {
+        Ok((transfer, path)) => MowyPreparedTransferResult {
+            code: MowyCoreCode::Success,
+            transfer: Some(transfer),
+            ciphertext_source_path: path,
+        },
+        Err(error) => MowyPreparedTransferResult {
+            code: map_error_code(error),
+            transfer: None,
+            ciphertext_source_path: String::new(),
+        },
+    }
+}
+
+pub fn stage_development_transfer(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+    sender_bundle: MowyPublicBundle,
+    transfer: MowyDevelopmentTransfer,
+) -> MowyStagedTransferResult {
+    match stage_development_transfer_inner(protected_store, now, sender_bundle, transfer) {
+        Ok(path) => MowyStagedTransferResult {
+            code: MowyCoreCode::Success,
+            ciphertext_destination_path: path,
+        },
+        Err(error) => MowyStagedTransferResult {
+            code: map_error_code(error),
+            ciphertext_destination_path: String::new(),
+        },
+    }
+}
+
+pub fn resume_development_transfer(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    cancellation: Box<dyn MowyCancellation>,
+    now: u64,
+    receiver_operation_id: String,
+) -> MowyProofResult {
+    match resume_development_transfer_inner(
+        protected_store,
+        cancellation,
+        now,
+        &receiver_operation_id,
+    ) {
+        Ok(receipt) => MowyProofResult {
+            code: MowyCoreCode::Success,
+            receipt: Some(receipt),
+        },
+        Err(error) => MowyProofResult {
+            code: map_error_code(error),
+            receipt: None,
+        },
+    }
+}
+
+pub fn cleanup_development_sender(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+    transfer: MowyDevelopmentTransfer,
+) -> MowyCodeResult {
+    let code = match cleanup_development_sender_inner(protected_store, now, transfer) {
+        Ok(()) => MowyCoreCode::Success,
+        Err(error) => map_error_code(error),
+    };
+    MowyCodeResult { code }
+}
+
+struct DevelopmentContext {
+    root: PathBuf,
+    root_keys: RootKeyMaterial,
+    profile: DevelopmentProfile,
+    bundle: DeviceKeyBundle,
+}
+
+#[derive(Clone, Copy)]
+struct ParsedDevelopmentTransfer {
+    sender_operation_id: CanonicalUuid,
+    receiver_operation_id: CanonicalUuid,
+    conversation_id: CanonicalUuid,
+    asset_id: CanonicalUuid,
+    recipient_key_id: CanonicalUuid,
+    sealed: crate::sealed_manifest::SealedManifest,
+    plaintext_length: u64,
+    ciphertext_length: u64,
+    ciphertext_digest: [u8; DIGEST_BYTES],
+}
+
+fn publish_development_bundle_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+) -> Result<MowyPublicBundle, MowyCoreError> {
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    Ok(encode_public_bundle(context.bundle))
+}
+
+fn prepare_development_transfer_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    cancellation: Box<dyn MowyCancellation>,
+    now: u64,
+    plaintext_length: u64,
+    recipient_bundle: MowyPublicBundle,
+) -> Result<(MowyDevelopmentTransfer, String), MowyCoreError> {
+    require_development_plaintext_length(plaintext_length)?;
+    let recipient_bundle = decode_public_bundle(&recipient_bundle)?;
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    if uuid_equal_bridge(recipient_bundle.device_id, context.profile.device_id)
+        || uuid_equal_bridge(
+            recipient_bundle.agreement_key_id,
+            context.profile.agreement_key_id,
+        )
+    {
+        return Err(MowyCoreError::InvalidInput);
+    }
+
+    let database_path = context.root.join(PROOF_DATABASE_NAME);
+    let mut published =
+        PublishedKeyRepository::open(&database_path).map_err(map_key_bundle_error)?;
+    published
+        .pin_verified(&recipient_bundle, now)
+        .map_err(map_key_bundle_error)?;
+    let recipient_bundle = published
+        .load_verified_at(recipient_bundle.account_id, recipient_bundle.device_id, now)
+        .map_err(map_key_bundle_error)?
+        .ok_or(MowyCoreError::Storage)?;
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    let mut files = PrivateFileStore::open(&context.root).map_err(map_file_error)?;
+    let mut cancellation = ForeignCancellation::new(cancellation.as_ref());
+    cancellation.require_active()?;
+    let identifiers = ProofIdentifiers::generate()?;
+
+    files
+        .create_development_source(identifiers.asset_id, plaintext_length, &mut cancellation)
+        .map_err(|error| cancellation.map_private_error(error))?;
+    if let Err(error) = operations.begin_sender(
+        identifiers.sender_operation_id,
+        identifiers.conversation_id,
+        identifiers.asset_id,
+        context.profile.device_id,
+    ) {
+        let cleanup = files.cleanup_development_artifacts(identifiers.asset_id);
+        return match cleanup {
+            Ok(()) => Err(map_repository_error(error)),
+            Err(cleanup_error) => Err(map_file_error(cleanup_error)),
+        };
+    }
+
+    let result = (|| {
+        require_protected(protected_store.as_ref())?;
+        let encrypted = files
+            .encrypt_asset(
+                identifiers.conversation_id,
+                identifiers.asset_id,
+                &mut cancellation,
+            )
+            .map_err(|error| cancellation.map_private_error(error))?;
+        require_protected(protected_store.as_ref())?;
+        let sealed = seal_manifest(
+            &context.root_keys,
+            context.profile.device_id,
+            &recipient_bundle,
+            &encrypted.encrypted.manifest,
+            now,
+        )
+        .map_err(map_sealed_error)?;
+        operations
+            .commit_sender_outbox(
+                identifiers.sender_operation_id,
+                &encrypted.encrypted.manifest,
+                &sealed,
+            )
+            .map_err(map_repository_error)?;
+        let durable = operations
+            .load_sender_outbox(identifiers.sender_operation_id)
+            .map_err(map_repository_error)?
+            .ok_or(MowyCoreError::Storage)?;
+        let path = encrypted
+            .ciphertext_path
+            .to_str()
+            .map(str::to_owned)
+            .ok_or(MowyCoreError::Storage)?;
+        let transfer = MowyDevelopmentTransfer {
+            sender_operation_id: uuid_hex(identifiers.sender_operation_id),
+            receiver_operation_id: uuid_hex(identifiers.receiver_operation_id),
+            conversation_id: uuid_hex(identifiers.conversation_id),
+            asset_id: uuid_hex(identifiers.asset_id),
+            recipient_key_id: uuid_hex(durable.sealed.recipient_key_id),
+            sealed_manifest: bytes_hex(durable.sealed.as_bytes()),
+            plaintext_length: durable.plaintext_length,
+            ciphertext_length: durable.ciphertext_length,
+            ciphertext_sha256: digest_hex(&durable.ciphertext_digest),
+        };
+        require_protected(protected_store.as_ref())?;
+        cancellation.require_active()?;
+        Ok((transfer, path))
+    })();
+
+    if result.is_err() {
+        let operation_cleanup = operations
+            .cleanup_development_sender(identifiers.sender_operation_id)
+            .map_err(map_repository_error);
+        let file_cleanup = files
+            .cleanup_development_artifacts(identifiers.asset_id)
+            .map_err(map_file_error);
+        operation_cleanup.and(file_cleanup)?;
+    }
+    result
+}
+
+fn stage_development_transfer_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+    sender_bundle: MowyPublicBundle,
+    transfer: MowyDevelopmentTransfer,
+) -> Result<String, MowyCoreError> {
+    let sender_bundle = decode_public_bundle(&sender_bundle)?;
+    let transfer = decode_development_transfer(&transfer)?;
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    if !uuid_equal_bridge(transfer.recipient_key_id, context.profile.agreement_key_id)
+        || uuid_equal_bridge(sender_bundle.device_id, context.profile.device_id)
+    {
+        return Err(MowyCoreError::InvalidInput);
+    }
+    let expires_at = now
+        .checked_add(DEVELOPMENT_TRANSFER_SECONDS)
+        .ok_or(MowyCoreError::InvalidInput)?;
+    let database_path = context.root.join(PROOF_DATABASE_NAME);
+    let mut published =
+        PublishedKeyRepository::open(&database_path).map_err(map_key_bundle_error)?;
+    published
+        .pin_verified(&sender_bundle, now)
+        .map_err(map_key_bundle_error)?;
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    operations
+        .stage_development_transfer(DevelopmentTransferInbox {
+            operation_id: transfer.receiver_operation_id,
+            sender_account_id: sender_bundle.account_id,
+            sender_device_id: sender_bundle.device_id,
+            conversation_id: transfer.conversation_id,
+            asset_id: transfer.asset_id,
+            recipient_key_id: transfer.recipient_key_id,
+            sealed: Some(transfer.sealed),
+            plaintext_length: transfer.plaintext_length,
+            ciphertext_length: transfer.ciphertext_length,
+            ciphertext_digest: transfer.ciphertext_digest,
+            received_at: now,
+            expires_at,
+            state: DevelopmentTransferState::Staged,
+        })
+        .map_err(map_repository_error)?;
+    let files = PrivateFileStore::open(&context.root).map_err(map_file_error)?;
+    files
+        .ciphertext_path(transfer.asset_id)
+        .to_str()
+        .map(str::to_owned)
+        .ok_or(MowyCoreError::Storage)
+}
+
+fn resume_development_transfer_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    cancellation: Box<dyn MowyCancellation>,
+    now: u64,
+    receiver_operation_id: &str,
+) -> Result<MowyProofReceipt, MowyCoreError> {
+    let receiver_operation_id = decode_uuid_hex(receiver_operation_id)?;
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    let database_path = context.root.join(PROOF_DATABASE_NAME);
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    let transfer = operations
+        .load_development_transfer(receiver_operation_id)
+        .map_err(map_repository_error)?
+        .ok_or(MowyCoreError::Unavailable)?;
+    if !uuid_equal_bridge(transfer.recipient_key_id, context.profile.agreement_key_id)
+        || now >= transfer.expires_at
+    {
+        return Err(MowyCoreError::Unavailable);
+    }
+    let published = PublishedKeyRepository::open(&database_path).map_err(map_key_bundle_error)?;
+    let sender_bundle = published
+        .load_verified_at(transfer.sender_account_id, transfer.sender_device_id, now)
+        .map_err(map_key_bundle_error)?
+        .ok_or(MowyCoreError::Authentication)?;
+    let mut files = PrivateFileStore::open(&context.root).map_err(map_file_error)?;
+    let mut cancellation = ForeignCancellation::new(cancellation.as_ref());
+    cancellation.require_active()?;
+    require_protected(protected_store.as_ref())?;
+
+    let receiver_state = operations
+        .receiver_state(receiver_operation_id)
+        .map_err(map_repository_error)?;
+    let available = if receiver_state == Some(ReceiverState::Available) {
+        let mut availability = ForeignAvailability::new(protected_store.as_ref());
+        let result = recover_available(
+            &operations,
+            &mut files,
+            receiver_operation_id,
+            &mut availability,
+        );
+        if let Some(error) = availability.take_error() {
+            return Err(error);
+        }
+        result.map_err(map_receiver_error)?
+    } else {
+        if receiver_state == Some(ReceiverState::UnavailableResend) {
+            return Err(MowyCoreError::Unavailable);
+        }
+        let sealed = match transfer.state {
+            DevelopmentTransferState::Staged => {
+                if receiver_state.is_some() {
+                    return Err(MowyCoreError::Conflict);
+                }
+                transfer.sealed.ok_or(MowyCoreError::Storage)?
+            }
+            DevelopmentTransferState::Promoted => {
+                let resumable = operations
+                    .load_development_resumable(receiver_operation_id)
+                    .map_err(map_repository_error)?
+                    .ok_or(MowyCoreError::Conflict)?;
+                if !uuid_equal_bridge(resumable.conversation_id, transfer.conversation_id)
+                    || !uuid_equal_bridge(resumable.asset_id, transfer.asset_id)
+                    || !uuid_equal_bridge(resumable.sender_device_id, transfer.sender_device_id)
+                    || resumable.plaintext_length != transfer.plaintext_length
+                    || resumable.ciphertext_length != transfer.ciphertext_length
+                    || !crypto_verify::verify_32(
+                        &resumable.ciphertext_digest,
+                        &transfer.ciphertext_digest,
+                    )
+                {
+                    return Err(MowyCoreError::Conflict);
+                }
+                resumable.sealed
+            }
+        };
+        let local_key = LocalAgreementKey::from_current_root(
+            &context.root_keys,
+            context.profile.device_id,
+            context.profile.agreement_key_id,
+            context.bundle.validity,
+        )
+        .map_err(map_sealed_error)?;
+        let opened = open_manifest(
+            &sealed,
+            &local_key,
+            TrustedSender {
+                device_id: transfer.sender_device_id,
+                identity_public_key: sender_bundle.identity_public_key,
+            },
+            transfer.conversation_id,
+            transfer.asset_id,
+            now,
+        )
+        .map_err(map_sealed_error)?;
+        require_protected(protected_store.as_ref())?;
+        if transfer.state == DevelopmentTransferState::Staged {
+            let committed = operations
+                .promote_development_transfer(receiver_operation_id, &opened, transfer.received_at)
+                .map_err(map_repository_error)?;
+            if !matches!(
+                committed,
+                ReceiverCommit::Created | ReceiverCommit::Existing(_)
+            ) {
+                return Err(MowyCoreError::Conflict);
+            }
+        }
+        let archive_key = ArchiveKey::from_root(&context.root_keys).map_err(map_archive_error)?;
+        let mut availability = ForeignAvailability::new(protected_store.as_ref());
+        let result = complete_or_recover(
+            &mut operations,
+            &mut files,
+            receiver_operation_id,
+            opened,
+            &archive_key,
+            &mut availability,
+            &mut cancellation,
+        );
+        if let Some(error) = availability.take_error() {
+            return Err(error);
+        }
+        result.map_err(map_receiver_error)?
+    };
+    if let Some(error) = cancellation.take_error() {
+        return Err(error);
+    }
+
+    let archive_key = ArchiveKey::from_root(&context.root_keys).map_err(map_archive_error)?;
+    let mut archive = files
+        .open_archive_file(transfer.asset_id)
+        .map_err(map_file_error)?;
+    let mut verifier = FixtureVerifier::new(transfer.plaintext_length);
+    open_archive(
+        &mut archive,
+        &mut verifier,
+        &available.descriptor,
+        &archive_key,
+        &mut cancellation,
+    )
+    .map_err(|error| cancellation.map_archive_error(error))?;
+    verifier.finish()?;
+    require_protected(protected_store.as_ref())?;
+    cancellation.require_active()?;
+    Ok(MowyProofReceipt {
+        proof_id: uuid_hex(receiver_operation_id),
+        plaintext_length: transfer.plaintext_length,
+        ciphertext_length: transfer.ciphertext_length,
+        ciphertext_sha256: digest_hex(&transfer.ciphertext_digest),
+        archive_sha256: digest_hex(&available.descriptor.ciphertext_digest()),
+    })
+}
+
+fn cleanup_development_sender_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+    transfer: MowyDevelopmentTransfer,
+) -> Result<(), MowyCoreError> {
+    let transfer = decode_development_transfer(&transfer)?;
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    let database_path = context.root.join(PROOF_DATABASE_NAME);
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    if !operations
+        .development_sender_matches(
+            transfer.sender_operation_id,
+            transfer.conversation_id,
+            transfer.asset_id,
+            context.profile.device_id,
+        )
+        .map_err(map_repository_error)?
+    {
+        return Err(MowyCoreError::Conflict);
+    }
+    let durable = operations
+        .load_sender_outbox(transfer.sender_operation_id)
+        .map_err(map_repository_error)?
+        .ok_or(MowyCoreError::Conflict)?;
+    if !stored_outbox_matches_transfer(&durable, &transfer) {
+        return Err(MowyCoreError::Conflict);
+    }
+    let mut files = PrivateFileStore::open(&context.root).map_err(map_file_error)?;
+    files
+        .cleanup_development_artifacts(transfer.asset_id)
+        .map_err(map_file_error)?;
+    operations
+        .cleanup_development_sender(transfer.sender_operation_id)
+        .map_err(map_repository_error)
+}
+
+#[cfg(test)]
+fn cleanup_development_receiver_inner(
+    protected_store: Box<dyn NativeProtectedKeyStore>,
+    now: u64,
+    transfer: MowyDevelopmentTransfer,
+) -> Result<(), MowyCoreError> {
+    let transfer = decode_development_transfer(&transfer)?;
+    let _guard = acquire_proof_lock()?;
+    let context = initialize_development_context(protected_store.as_ref(), now)?;
+    if !uuid_equal_bridge(transfer.recipient_key_id, context.profile.agreement_key_id) {
+        return Err(MowyCoreError::InvalidInput);
+    }
+    let database_path = context.root.join(PROOF_DATABASE_NAME);
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    let durable = operations
+        .load_development_transfer(transfer.receiver_operation_id)
+        .map_err(map_repository_error)?
+        .ok_or(MowyCoreError::Conflict)?;
+    if durable.state != DevelopmentTransferState::Promoted
+        || !development_inbox_matches_transfer(&durable, &transfer)
+        || operations
+            .receiver_state(transfer.receiver_operation_id)
+            .map_err(map_repository_error)?
+            != Some(ReceiverState::Available)
+    {
+        return Err(MowyCoreError::Conflict);
+    }
+    let available = operations
+        .load_available(transfer.receiver_operation_id)
+        .map_err(map_repository_error)?
+        .ok_or(MowyCoreError::Conflict)?;
+    if !uuid_equal_bridge(
+        available.descriptor.conversation_id(),
+        transfer.conversation_id,
+    ) || !uuid_equal_bridge(available.descriptor.asset_id(), transfer.asset_id)
+        || available.descriptor.plaintext_length() != transfer.plaintext_length
+    {
+        return Err(MowyCoreError::Conflict);
+    }
+    let mut files = PrivateFileStore::open(&context.root).map_err(map_file_error)?;
+    files
+        .cleanup_development_artifacts(transfer.asset_id)
+        .map_err(map_file_error)?;
+    operations
+        .cleanup_development_receiver(transfer.receiver_operation_id)
+        .map_err(map_repository_error)
+}
+
+fn initialize_development_context(
+    protected_store: &dyn NativeProtectedKeyStore,
+    now: u64,
+) -> Result<DevelopmentContext, MowyCoreError> {
+    let root_text = response_path(protected_store.prepare_namespaces())?;
+    let root = validate_root(&root_text)?;
+    let protected_state = map_native_key_state(response_key_state(protected_store.key_state())?);
+    let companions = CompanionState {
+        installation_marker_exists: response_flag(protected_store.installation_marker_exists())?,
+        database_exists: response_flag(protected_store.database_exists())?,
+    };
+    let initialization = classify_initialization(protected_state, companions);
+    if initialization == InitializationState::Unavailable {
+        return Err(MowyCoreError::Unavailable);
+    }
+    let mut key_store = ProtectedStoreAdapter::new(protected_store);
+    let public_keys = initialize(&mut key_store, companions).map_err(map_key_material_error)?;
+    if initialization == InitializationState::Empty {
+        response_unit(protected_store.commit_companions())?;
+    }
+    require_ready(protected_store)?;
+    validate_database(&root)?;
+    let root_keys = key_store.load().map_err(map_key_material_error)?;
+    require_protected(protected_store)?;
+    let database_path = root.join(PROOF_DATABASE_NAME);
+    let mut operations = OperationRepository::open(&database_path).map_err(map_repository_error)?;
+    let profile = match operations
+        .load_development_profile()
+        .map_err(map_repository_error)?
+    {
+        Some(profile) => profile,
+        None => {
+            let validity = KeyValidityWindow::starting_at(now).map_err(map_key_bundle_error)?;
+            let profile = DevelopmentProfile {
+                account_id: random_uuid()?,
+                device_id: random_uuid()?,
+                agreement_key_id: random_uuid()?,
+                not_before: validity.not_before,
+                not_after: validity.not_after,
+            };
+            operations
+                .create_development_profile(profile)
+                .map_err(map_repository_error)?;
+            profile
+        }
+    };
+    let validity = KeyValidityWindow::from_bounds(profile.not_before, profile.not_after)
+        .map_err(map_key_bundle_error)?;
+    validity
+        .require_active_at(now)
+        .map_err(map_key_bundle_error)?;
+    let bundle = sign_current_bundle(
+        &root_keys,
+        profile.account_id,
+        profile.device_id,
+        profile.agreement_key_id,
+        validity,
+    )
+    .map_err(map_key_bundle_error)?;
+    if !crypto_verify::verify_32(&public_keys.identity, &bundle.identity_public_key)
+        || !crypto_verify::verify_32(&public_keys.key_agreement, &bundle.agreement_public_key)
+    {
+        return Err(MowyCoreError::Authentication);
+    }
+    Ok(DevelopmentContext {
+        root,
+        root_keys,
+        profile,
+        bundle,
+    })
+}
+
+fn acquire_proof_lock() -> Result<std::sync::MutexGuard<'static, ()>, MowyCoreError> {
+    match PROOF_LOCK.try_lock() {
+        Ok(guard) => Ok(guard),
+        Err(TryLockError::WouldBlock) | Err(TryLockError::Poisoned(_)) => {
+            Err(MowyCoreError::Conflict)
+        }
+    }
+}
+
+fn encode_public_bundle(bundle: DeviceKeyBundle) -> MowyPublicBundle {
+    MowyPublicBundle {
+        account_id: uuid_hex(bundle.account_id),
+        device_id: uuid_hex(bundle.device_id),
+        agreement_key_id: uuid_hex(bundle.agreement_key_id),
+        identity_public_key: bytes_hex(&bundle.identity_public_key),
+        agreement_public_key: bytes_hex(&bundle.agreement_public_key),
+        not_before: bundle.validity.not_before,
+        not_after: bundle.validity.not_after,
+        signature: bytes_hex(&bundle.signature),
+    }
+}
+
+fn decode_public_bundle(bundle: &MowyPublicBundle) -> Result<DeviceKeyBundle, MowyCoreError> {
+    Ok(DeviceKeyBundle {
+        account_id: decode_uuid_hex(&bundle.account_id)?,
+        device_id: decode_uuid_hex(&bundle.device_id)?,
+        agreement_key_id: decode_uuid_hex(&bundle.agreement_key_id)?,
+        identity_public_key: decode_lower_hex(&bundle.identity_public_key)?,
+        agreement_public_key: decode_lower_hex(&bundle.agreement_public_key)?,
+        validity: KeyValidityWindow::from_bounds(bundle.not_before, bundle.not_after)
+            .map_err(map_key_bundle_error)?,
+        signature: decode_lower_hex(&bundle.signature)?,
+    })
+}
+
+fn decode_development_transfer(
+    transfer: &MowyDevelopmentTransfer,
+) -> Result<ParsedDevelopmentTransfer, MowyCoreError> {
+    require_development_plaintext_length(transfer.plaintext_length)?;
+    if canonical_ciphertext_length(transfer.plaintext_length).map_err(map_manifest_error)?
+        != transfer.ciphertext_length
+    {
+        return Err(MowyCoreError::InvalidInput);
+    }
+    let recipient_key_id = decode_uuid_hex(&transfer.recipient_key_id)?;
+    Ok(ParsedDevelopmentTransfer {
+        sender_operation_id: decode_uuid_hex(&transfer.sender_operation_id)?,
+        receiver_operation_id: decode_uuid_hex(&transfer.receiver_operation_id)?,
+        conversation_id: decode_uuid_hex(&transfer.conversation_id)?,
+        asset_id: decode_uuid_hex(&transfer.asset_id)?,
+        recipient_key_id,
+        sealed: crate::sealed_manifest::SealedManifest::parse(
+            recipient_key_id,
+            &decode_lower_hex::<{ crate::sealed_manifest::SEALED_BYTES }>(
+                &transfer.sealed_manifest,
+            )?,
+        )
+        .map_err(map_sealed_error)?,
+        plaintext_length: transfer.plaintext_length,
+        ciphertext_length: transfer.ciphertext_length,
+        ciphertext_digest: decode_lower_hex(&transfer.ciphertext_sha256)?,
+    })
+}
+
+fn require_development_plaintext_length(value: u64) -> Result<(), MowyCoreError> {
+    if value == 0 || value > MAXIMUM_DEVELOPMENT_PLAINTEXT_BYTES {
+        Err(MowyCoreError::InvalidInput)
+    } else {
+        canonical_ciphertext_length(value)
+            .map(|_| ())
+            .map_err(map_manifest_error)
+    }
+}
+
+fn decode_uuid_hex(value: &str) -> Result<CanonicalUuid, MowyCoreError> {
+    CanonicalUuid::from_network_bytes(decode_lower_hex(value)?).map_err(map_key_bundle_error)
+}
+
+fn decode_lower_hex<const N: usize>(value: &str) -> Result<[u8; N], MowyCoreError> {
+    if value.len() != N * 2 || !value.is_ascii() {
+        return Err(MowyCoreError::InvalidInput);
+    }
+    let mut output = [0_u8; N];
+    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+        let high = decode_hex_nibble(pair[0])?;
+        let low = decode_hex_nibble(pair[1])?;
+        output[index] = high * 16 + low;
+    }
+    Ok(output)
+}
+
+fn decode_hex_nibble(value: u8) -> Result<u8, MowyCoreError> {
+    match value {
+        b'0'..=b'9' => Ok(value - b'0'),
+        b'a'..=b'f' => Ok(value - b'a' + 10),
+        _ => Err(MowyCoreError::InvalidInput),
+    }
+}
+
+fn uuid_equal_bridge(left: CanonicalUuid, right: CanonicalUuid) -> bool {
+    crypto_verify::verify_16(left.as_network_bytes(), right.as_network_bytes())
+}
+
+fn stored_outbox_matches_transfer(
+    stored: &crate::operation_repository::StoredOutbox,
+    transfer: &ParsedDevelopmentTransfer,
+) -> bool {
+    uuid_equal_bridge(stored.sealed.recipient_key_id, transfer.recipient_key_id)
+        && libsodium_rs::utils::memcmp(stored.sealed.as_bytes(), transfer.sealed.as_bytes())
+        && stored.ciphertext_name == format!("{}.mowy", uuid_hex(transfer.asset_id))
+        && stored.plaintext_length == transfer.plaintext_length
+        && stored.ciphertext_length == transfer.ciphertext_length
+        && crypto_verify::verify_32(&stored.ciphertext_digest, &transfer.ciphertext_digest)
+}
+
+#[cfg(test)]
+fn development_inbox_matches_transfer(
+    stored: &DevelopmentTransferInbox,
+    transfer: &ParsedDevelopmentTransfer,
+) -> bool {
+    uuid_equal_bridge(stored.operation_id, transfer.receiver_operation_id)
+        && uuid_equal_bridge(stored.conversation_id, transfer.conversation_id)
+        && uuid_equal_bridge(stored.asset_id, transfer.asset_id)
+        && uuid_equal_bridge(stored.recipient_key_id, transfer.recipient_key_id)
+        && stored.plaintext_length == transfer.plaintext_length
+        && stored.ciphertext_length == transfer.ciphertext_length
+        && crypto_verify::verify_32(&stored.ciphertext_digest, &transfer.ciphertext_digest)
 }
 
 pub fn run_development_proof(
@@ -1199,6 +1981,159 @@ mod tests {
         plaintext_length: u64,
     ) -> Result<MowyProofReceipt, MowyCoreError> {
         run_development_proof_inner(Box::new(store), cancellation, now, plaintext_length)
+    }
+
+    #[test]
+    fn cross_device_transfer_stages_before_open_survives_relaunch_and_cleans_exactly()
+    -> Result<(), MowyCoreError> {
+        let _test_guard = BRIDGE_TEST_LOCK
+            .lock()
+            .map_err(|_| MowyCoreError::Storage)?;
+        let sender = TestStore::new("cross-device-sender");
+        let receiver = TestStore::new("cross-device-receiver");
+        let now = 1_780_000_000;
+        let sender_bundle = publish_development_bundle_inner(Box::new(sender.clone()), now)?;
+        let receiver_bundle = publish_development_bundle_inner(Box::new(receiver.clone()), now)?;
+        let (transfer, source_path) = prepare_development_transfer_inner(
+            Box::new(sender.clone()),
+            Box::new(NeverCancel),
+            now,
+            70_000,
+            receiver_bundle,
+        )?;
+        let destination_path = stage_development_transfer_inner(
+            Box::new(receiver.clone()),
+            now + 1,
+            sender_bundle.clone(),
+            transfer.clone(),
+        )?;
+        assert_eq!(
+            stage_development_transfer_inner(
+                Box::new(receiver.clone()),
+                now + 2,
+                sender_bundle,
+                transfer.clone(),
+            )?,
+            destination_path
+        );
+        let parsed = decode_development_transfer(&transfer)?;
+        {
+            let repository =
+                OperationRepository::open(&receiver.inner.root.join(PROOF_DATABASE_NAME))
+                    .map_err(map_repository_error)?;
+            let staged = repository
+                .load_development_transfer(parsed.receiver_operation_id)
+                .map_err(map_repository_error)?
+                .ok_or(MowyCoreError::Storage)?;
+            assert_eq!(staged.state, DevelopmentTransferState::Staged);
+            assert!(staged.sealed.is_some());
+            assert_eq!(
+                repository
+                    .receiver_state(parsed.receiver_operation_id)
+                    .map_err(map_repository_error)?,
+                None
+            );
+        }
+        assert!(!Path::new(&destination_path).exists());
+        std::fs::copy(&source_path, &destination_path).map_err(|_| MowyCoreError::Storage)?;
+        std::fs::set_permissions(&destination_path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|_| MowyCoreError::Storage)?;
+
+        let first = resume_development_transfer_inner(
+            Box::new(receiver.clone()),
+            Box::new(NeverCancel),
+            now + 3,
+            &transfer.receiver_operation_id,
+        )?;
+        let relaunched = resume_development_transfer_inner(
+            Box::new(receiver.clone()),
+            Box::new(NeverCancel),
+            now + 4,
+            &transfer.receiver_operation_id,
+        )?;
+        assert_eq!(first, relaunched);
+        assert_eq!(first.plaintext_length, 70_000);
+        assert_eq!(first.ciphertext_sha256, transfer.ciphertext_sha256);
+
+        cleanup_development_receiver_inner(Box::new(receiver.clone()), now + 5, transfer.clone())?;
+        cleanup_development_sender_inner(Box::new(sender.clone()), now + 5, transfer)?;
+        for store in [&sender, &receiver] {
+            for name in [
+                "source",
+                "ciphertext",
+                "receive-temp",
+                "verified",
+                "archive",
+            ] {
+                assert_eq!(
+                    std::fs::read_dir(store.inner.root.join(name))
+                        .map_err(|_| MowyCoreError::Storage)?
+                        .count(),
+                    0
+                );
+            }
+        }
+        sender.cleanup()?;
+        receiver.cleanup()
+    }
+
+    #[test]
+    fn staged_transfer_is_not_opened_until_resume_and_tamper_remains_durable()
+    -> Result<(), MowyCoreError> {
+        let _test_guard = BRIDGE_TEST_LOCK
+            .lock()
+            .map_err(|_| MowyCoreError::Storage)?;
+        let sender = TestStore::new("staged-tamper-sender");
+        let receiver = TestStore::new("staged-tamper-receiver");
+        let now = 1_780_000_000;
+        let sender_bundle = publish_development_bundle_inner(Box::new(sender.clone()), now)?;
+        let receiver_bundle = publish_development_bundle_inner(Box::new(receiver.clone()), now)?;
+        let (mut transfer, _) = prepare_development_transfer_inner(
+            Box::new(sender.clone()),
+            Box::new(NeverCancel),
+            now,
+            64,
+            receiver_bundle,
+        )?;
+        let replacement = if transfer.sealed_manifest.starts_with('0') {
+            "1"
+        } else {
+            "0"
+        };
+        transfer.sealed_manifest.replace_range(0..1, replacement);
+        stage_development_transfer_inner(
+            Box::new(receiver.clone()),
+            now + 1,
+            sender_bundle,
+            transfer.clone(),
+        )?;
+        assert!(matches!(
+            resume_development_transfer_inner(
+                Box::new(receiver.clone()),
+                Box::new(NeverCancel),
+                now + 2,
+                &transfer.receiver_operation_id,
+            ),
+            Err(MowyCoreError::Authentication | MowyCoreError::Cryptography)
+        ));
+        let parsed = decode_development_transfer(&transfer)?;
+        let repository = OperationRepository::open(&receiver.inner.root.join(PROOF_DATABASE_NAME))
+            .map_err(map_repository_error)?;
+        let retained = repository
+            .load_development_transfer(parsed.receiver_operation_id)
+            .map_err(map_repository_error)?
+            .ok_or(MowyCoreError::Storage)?;
+        assert_eq!(retained.state, DevelopmentTransferState::Staged);
+        assert_eq!(retained.sealed, Some(parsed.sealed));
+        assert_eq!(
+            repository
+                .receiver_state(parsed.receiver_operation_id)
+                .map_err(map_repository_error)?,
+            None
+        );
+        drop(repository);
+        sender.cleanup()?;
+        receiver.cleanup()
     }
 
     #[test]

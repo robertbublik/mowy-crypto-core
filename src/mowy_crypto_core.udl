@@ -7,6 +7,40 @@ namespace mowy_crypto_core {
     u64 now,
     u64 plaintext_length
   );
+
+  MowyPublicBundleResult publish_development_bundle(
+    NativeProtectedKeyStore protected_store,
+    u64 now
+  );
+
+  MowyPreparedTransferResult prepare_development_transfer(
+    NativeProtectedKeyStore protected_store,
+    MowyCancellation cancellation,
+    u64 now,
+    u64 plaintext_length,
+    MowyPublicBundle recipient_bundle
+  );
+
+  MowyStagedTransferResult stage_development_transfer(
+    NativeProtectedKeyStore protected_store,
+    u64 now,
+    MowyPublicBundle sender_bundle,
+    MowyDevelopmentTransfer transfer
+  );
+
+  MowyProofResult resume_development_transfer(
+    NativeProtectedKeyStore protected_store,
+    MowyCancellation cancellation,
+    u64 now,
+    string receiver_operation_id
+  );
+
+  MowyCodeResult cleanup_development_sender(
+    NativeProtectedKeyStore protected_store,
+    u64 now,
+    MowyDevelopmentTransfer transfer
+  );
+
 };
 
 enum MowyCoreCode {
@@ -37,6 +71,49 @@ dictionary MowyProofReceipt {
 dictionary MowyProofResult {
   MowyCoreCode code;
   MowyProofReceipt? receipt;
+};
+
+dictionary MowyPublicBundle {
+  string account_id;
+  string device_id;
+  string agreement_key_id;
+  string identity_public_key;
+  string agreement_public_key;
+  u64 not_before;
+  u64 not_after;
+  string signature;
+};
+
+dictionary MowyPublicBundleResult {
+  MowyCoreCode code;
+  MowyPublicBundle? bundle;
+};
+
+dictionary MowyDevelopmentTransfer {
+  string sender_operation_id;
+  string receiver_operation_id;
+  string conversation_id;
+  string asset_id;
+  string recipient_key_id;
+  string sealed_manifest;
+  u64 plaintext_length;
+  u64 ciphertext_length;
+  string ciphertext_sha256;
+};
+
+dictionary MowyPreparedTransferResult {
+  MowyCoreCode code;
+  MowyDevelopmentTransfer? transfer;
+  string ciphertext_source_path;
+};
+
+dictionary MowyStagedTransferResult {
+  MowyCoreCode code;
+  string ciphertext_destination_path;
+};
+
+dictionary MowyCodeResult {
+  MowyCoreCode code;
 };
 
 dictionary NativeBridgeResponse {

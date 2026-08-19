@@ -16,10 +16,13 @@ const RECEIVER_WAITING: i64 = 1;
 const RECEIVER_VERIFIED_TEMP: i64 = 2;
 const RECEIVER_AVAILABLE: i64 = 3;
 const RECEIVER_UNAVAILABLE: i64 = 4;
+const DEVELOPMENT_TRANSFER_STAGED: i64 = 1;
+const DEVELOPMENT_TRANSFER_PROMOTED: i64 = 2;
 const OUTCOME_RESEND: i64 = 1;
 const WAITING_SECONDS: u64 = 24 * 60 * 60;
-const OPERATION_SCHEMA_VERSION: i64 = 2;
-const PREVIOUS_OPERATION_SCHEMA_VERSION: i64 = 1;
+const OPERATION_SCHEMA_VERSION: i64 = 3;
+const PREVIOUS_OPERATION_SCHEMA_VERSION: i64 = 2;
+const LEGACY_OPERATION_SCHEMA_VERSION: i64 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum OperationRepositoryError {
@@ -89,6 +92,29 @@ pub(crate) struct DevelopmentProfile {
     pub(crate) not_after: u64,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DevelopmentTransferState {
+    Staged,
+    Promoted,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct DevelopmentTransferInbox {
+    pub(crate) operation_id: CanonicalUuid,
+    pub(crate) sender_account_id: CanonicalUuid,
+    pub(crate) sender_device_id: CanonicalUuid,
+    pub(crate) conversation_id: CanonicalUuid,
+    pub(crate) asset_id: CanonicalUuid,
+    pub(crate) recipient_key_id: CanonicalUuid,
+    pub(crate) sealed: Option<SealedManifest>,
+    pub(crate) plaintext_length: u64,
+    pub(crate) ciphertext_length: u64,
+    pub(crate) ciphertext_digest: [u8; DIGEST_BYTES],
+    pub(crate) received_at: u64,
+    pub(crate) expires_at: u64,
+    pub(crate) state: DevelopmentTransferState,
+}
+
 pub(crate) struct OperationRepository {
     connection: Connection,
 }
@@ -128,6 +154,7 @@ impl OperationRepository {
         if existing_operation_tables != 0
             && schema_version != OPERATION_SCHEMA_VERSION
             && schema_version != PREVIOUS_OPERATION_SCHEMA_VERSION
+            && schema_version != LEGACY_OPERATION_SCHEMA_VERSION
         {
             return Err(OperationRepositoryError::Storage);
         }
@@ -194,7 +221,23 @@ impl OperationRepository {
                    not_before BLOB NOT NULL CHECK(typeof(not_before) = 'blob' AND length(not_before) = 8),
                    not_after BLOB NOT NULL CHECK(typeof(not_after) = 'blob' AND length(not_after) = 8)
                  ) STRICT;
-                 PRAGMA user_version = 2;",
+                 CREATE TABLE IF NOT EXISTS development_transfer_inbox (
+                   operation_id BLOB PRIMARY KEY CHECK(typeof(operation_id) = 'blob' AND length(operation_id) = 16 AND operation_id != zeroblob(16)),
+                   sender_account_id BLOB NOT NULL CHECK(typeof(sender_account_id) = 'blob' AND length(sender_account_id) = 16 AND sender_account_id != zeroblob(16)),
+                   sender_device_id BLOB NOT NULL CHECK(typeof(sender_device_id) = 'blob' AND length(sender_device_id) = 16 AND sender_device_id != zeroblob(16)),
+                   conversation_id BLOB NOT NULL CHECK(typeof(conversation_id) = 'blob' AND length(conversation_id) = 16 AND conversation_id != zeroblob(16)),
+                   asset_id BLOB NOT NULL CHECK(typeof(asset_id) = 'blob' AND length(asset_id) = 16 AND asset_id != zeroblob(16)),
+                   recipient_key_id BLOB NOT NULL CHECK(typeof(recipient_key_id) = 'blob' AND length(recipient_key_id) = 16 AND recipient_key_id != zeroblob(16)),
+                   state INTEGER NOT NULL CHECK(state IN (1, 2)),
+                   sealed_blob BLOB CHECK((state = 1 AND typeof(sealed_blob) = 'blob' AND length(sealed_blob) = 408) OR (state = 2 AND sealed_blob IS NULL)),
+                   plaintext_length BLOB NOT NULL CHECK(typeof(plaintext_length) = 'blob' AND length(plaintext_length) = 8),
+                   ciphertext_length BLOB NOT NULL CHECK(typeof(ciphertext_length) = 'blob' AND length(ciphertext_length) = 8),
+                   ciphertext_digest BLOB NOT NULL CHECK(typeof(ciphertext_digest) = 'blob' AND length(ciphertext_digest) = 32),
+                   received_at BLOB NOT NULL CHECK(typeof(received_at) = 'blob' AND length(received_at) = 8),
+                   expires_at BLOB NOT NULL CHECK(typeof(expires_at) = 'blob' AND length(expires_at) = 8),
+                   UNIQUE(conversation_id, asset_id, sender_device_id)
+                 ) WITHOUT ROWID, STRICT;
+                 PRAGMA user_version = 3;",
             )
             .map_err(|_| OperationRepositoryError::Storage)?;
         Ok(Self { connection })
@@ -339,89 +382,36 @@ impl OperationRepository {
             .transpose()
     }
 
+    pub(crate) fn development_sender_matches(
+        &self,
+        operation_id: CanonicalUuid,
+        conversation_id: CanonicalUuid,
+        asset_id: CanonicalUuid,
+        sender_device_id: CanonicalUuid,
+    ) -> Result<bool, OperationRepositoryError> {
+        let Some(existing) = load_sender_identity(&self.connection, operation_id)? else {
+            return Ok(false);
+        };
+        Ok(existing.3 == SENDER_OUTBOX
+            && sender_identity_matches(&existing, conversation_id, asset_id, sender_device_id))
+    }
+
     pub(crate) fn commit_received_manifest(
         &mut self,
         operation_id: CanonicalUuid,
         opened: &OpenedManifest,
         now: u64,
     ) -> Result<ReceiverCommit, OperationRepositoryError> {
-        let sealed = opened.source_sealed();
-        let manifest = opened.manifest();
-        let conversation_id = manifest.conversation_id().map_err(map_manifest_error)?;
-        let asset_id = manifest.asset_id().map_err(map_manifest_error)?;
-        let plaintext_length = manifest.plaintext_length().map_err(map_manifest_error)?;
-        let ciphertext_length = manifest.ciphertext_length().map_err(map_manifest_error)?;
-        let ciphertext_digest = manifest.ciphertext_digest().map_err(map_manifest_error)?;
-        let manifest_digest = sha256::hash(manifest.as_bytes());
-        let expires_at = now
-            .checked_add(WAITING_SECONDS)
-            .ok_or(OperationRepositoryError::InvalidInput)?;
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|_| OperationRepositoryError::Storage)?;
-        if let Some(existing_id) = load_replay_operation(
-            &transaction,
-            conversation_id,
-            asset_id,
-            opened.sender_device_id,
-        )? {
-            if !receiver_operation_matches(&transaction, existing_id, sealed, manifest)? {
-                return Err(OperationRepositoryError::Conflict);
-            }
-            transaction
-                .commit()
-                .map_err(|_| OperationRepositoryError::Storage)?;
-            return Ok(ReceiverCommit::Existing(existing_id));
-        }
-        if receiver_operation_exists(&transaction, operation_id)? {
-            return Err(OperationRepositoryError::Conflict);
-        }
-        transaction
-            .execute(
-                "INSERT INTO receiver_operations (
-                   operation_id, conversation_id, asset_id, sender_device_id, state,
-                   recipient_key_id, sealed_blob, manifest_digest, ciphertext_name,
-                   plaintext_temp_name, plaintext_final_name, plaintext_length,
-                   ciphertext_length, ciphertext_digest, created_at, expires_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
-                params![
-                    uuid_bytes(operation_id),
-                    uuid_bytes(conversation_id),
-                    uuid_bytes(asset_id),
-                    uuid_bytes(opened.sender_device_id),
-                    RECEIVER_WAITING,
-                    uuid_bytes(sealed.recipient_key_id),
-                    sealed.as_bytes().as_slice(),
-                    manifest_digest.as_slice(),
-                    ciphertext_name(asset_id),
-                    plaintext_temp_name(asset_id),
-                    plaintext_final_name(asset_id),
-                    u64_bytes(plaintext_length),
-                    u64_bytes(ciphertext_length),
-                    ciphertext_digest.as_slice(),
-                    u64_bytes(now),
-                    u64_bytes(expires_at),
-                ],
-            )
-            .map_err(|_| OperationRepositoryError::Storage)?;
-        transaction
-            .execute(
-                "INSERT INTO attachment_replay_ledger(
-                   conversation_id, asset_id, sender_device_id, operation_id
-                 ) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    uuid_bytes(conversation_id),
-                    uuid_bytes(asset_id),
-                    uuid_bytes(opened.sender_device_id),
-                    uuid_bytes(operation_id),
-                ],
-            )
-            .map_err(|_| OperationRepositoryError::Storage)?;
+        let committed =
+            commit_received_manifest_transaction(&transaction, operation_id, opened, now)?;
         transaction
             .commit()
             .map_err(|_| OperationRepositoryError::Storage)?;
-        Ok(ReceiverCommit::Created)
+        Ok(committed)
     }
 
     pub(crate) fn load_waiting(
@@ -436,6 +426,44 @@ impl OperationRepository {
                  FROM receiver_operations
                  WHERE operation_id = ?1 AND state = ?2",
                 params![uuid_bytes(operation_id), RECEIVER_WAITING],
+                |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                        row.get::<_, Vec<u8>>(3)?,
+                        row.get::<_, Vec<u8>>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                        row.get::<_, Vec<u8>>(7)?,
+                        row.get::<_, Vec<u8>>(8)?,
+                        row.get::<_, Vec<u8>>(9)?,
+                        row.get::<_, Vec<u8>>(10)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|_| OperationRepositoryError::Storage)?
+            .map(decode_waiting)
+            .transpose()
+    }
+
+    pub(crate) fn load_development_resumable(
+        &self,
+        operation_id: CanonicalUuid,
+    ) -> Result<Option<WaitingOperation>, OperationRepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT recipient_key_id, sealed_blob, conversation_id, asset_id,
+                        sender_device_id, ciphertext_name, plaintext_temp_name,
+                        plaintext_length, ciphertext_length, ciphertext_digest, expires_at
+                 FROM receiver_operations
+                 WHERE operation_id = ?1 AND state IN (?2, ?3)",
+                params![
+                    uuid_bytes(operation_id),
+                    RECEIVER_WAITING,
+                    RECEIVER_VERIFIED_TEMP,
+                ],
                 |row| {
                     Ok((
                         row.get::<_, Vec<u8>>(0)?,
@@ -752,6 +780,163 @@ impl OperationRepository {
             .map_err(|_| OperationRepositoryError::Conflict)
     }
 
+    pub(crate) fn stage_development_transfer(
+        &mut self,
+        transfer: DevelopmentTransferInbox,
+    ) -> Result<(), OperationRepositoryError> {
+        if transfer.state != DevelopmentTransferState::Staged
+            || transfer.sealed.is_none()
+            || transfer.received_at >= transfer.expires_at
+            || transfer.expires_at.checked_sub(transfer.received_at) != Some(WAITING_SECONDS)
+        {
+            return Err(OperationRepositoryError::InvalidInput);
+        }
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if let Some(existing) =
+            load_development_transfer_connection(&transaction, transfer.operation_id)?
+        {
+            if development_transfer_equal(&existing, &transfer) {
+                transaction
+                    .commit()
+                    .map_err(|_| OperationRepositoryError::Storage)?;
+                return Ok(());
+            }
+            return Err(OperationRepositoryError::Conflict);
+        }
+        let sealed = transfer
+            .sealed
+            .as_ref()
+            .ok_or(OperationRepositoryError::InvalidInput)?;
+        transaction
+            .execute(
+                "INSERT INTO development_transfer_inbox (
+                   operation_id, sender_account_id, sender_device_id,
+                   conversation_id, asset_id, recipient_key_id, state,
+                   sealed_blob, plaintext_length, ciphertext_length,
+                   ciphertext_digest, received_at, expires_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![
+                    uuid_bytes(transfer.operation_id),
+                    uuid_bytes(transfer.sender_account_id),
+                    uuid_bytes(transfer.sender_device_id),
+                    uuid_bytes(transfer.conversation_id),
+                    uuid_bytes(transfer.asset_id),
+                    uuid_bytes(transfer.recipient_key_id),
+                    DEVELOPMENT_TRANSFER_STAGED,
+                    sealed.as_bytes().as_slice(),
+                    u64_bytes(transfer.plaintext_length),
+                    u64_bytes(transfer.ciphertext_length),
+                    transfer.ciphertext_digest.as_slice(),
+                    u64_bytes(transfer.received_at),
+                    u64_bytes(transfer.expires_at),
+                ],
+            )
+            .map_err(|_| OperationRepositoryError::Conflict)?;
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)
+    }
+
+    pub(crate) fn load_development_transfer(
+        &self,
+        operation_id: CanonicalUuid,
+    ) -> Result<Option<DevelopmentTransferInbox>, OperationRepositoryError> {
+        load_development_transfer_connection(&self.connection, operation_id)
+    }
+
+    pub(crate) fn promote_development_transfer(
+        &mut self,
+        operation_id: CanonicalUuid,
+        opened: &OpenedManifest,
+        now: u64,
+    ) -> Result<ReceiverCommit, OperationRepositoryError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let staged = load_development_transfer_connection(&transaction, operation_id)?
+            .ok_or(OperationRepositoryError::Conflict)?;
+        if staged.state != DevelopmentTransferState::Staged
+            || !development_transfer_matches_opened(&staged, opened)?
+        {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        let committed =
+            commit_received_manifest_transaction(&transaction, operation_id, opened, now)?;
+        if matches!(committed, ReceiverCommit::Existing(existing) if !uuid_equal(existing, operation_id))
+        {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        let changed = transaction
+            .execute(
+                "UPDATE development_transfer_inbox
+                 SET state = ?2, sealed_blob = NULL
+                 WHERE operation_id = ?1 AND state = ?3",
+                params![
+                    uuid_bytes(operation_id),
+                    DEVELOPMENT_TRANSFER_PROMOTED,
+                    DEVELOPMENT_TRANSFER_STAGED,
+                ],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if changed != 1 {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        Ok(committed)
+    }
+
+    pub(crate) fn cleanup_development_sender(
+        &mut self,
+        operation_id: CanonicalUuid,
+    ) -> Result<(), OperationRepositoryError> {
+        let changed = self
+            .connection
+            .execute(
+                "DELETE FROM sender_operations WHERE operation_id = ?1",
+                params![uuid_bytes(operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if changed == 1 {
+            Ok(())
+        } else {
+            Err(OperationRepositoryError::Conflict)
+        }
+    }
+
+    pub(crate) fn cleanup_development_receiver(
+        &mut self,
+        operation_id: CanonicalUuid,
+    ) -> Result<(), OperationRepositoryError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let transfer_changed = transaction
+            .execute(
+                "DELETE FROM development_transfer_inbox WHERE operation_id = ?1",
+                params![uuid_bytes(operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let receiver_changed = transaction
+            .execute(
+                "DELETE FROM receiver_operations WHERE operation_id = ?1",
+                params![uuid_bytes(operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if transfer_changed != 1 || receiver_changed != 1 {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)
+    }
+
     pub(crate) fn cleanup_development_proof(
         &mut self,
         sender_operation_id: CanonicalUuid,
@@ -769,6 +954,12 @@ impl OperationRepository {
             .map_err(|_| OperationRepositoryError::Storage)?;
         transaction
             .execute(
+                "DELETE FROM development_transfer_inbox WHERE operation_id = ?1",
+                params![uuid_bytes(receiver_operation_id)],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        transaction
+            .execute(
                 "DELETE FROM sender_operations WHERE operation_id = ?1",
                 params![uuid_bytes(sender_operation_id)],
             )
@@ -777,6 +968,217 @@ impl OperationRepository {
             .commit()
             .map_err(|_| OperationRepositoryError::Storage)
     }
+}
+
+fn commit_received_manifest_transaction(
+    connection: &Connection,
+    operation_id: CanonicalUuid,
+    opened: &OpenedManifest,
+    now: u64,
+) -> Result<ReceiverCommit, OperationRepositoryError> {
+    let sealed = opened.source_sealed();
+    let manifest = opened.manifest();
+    let conversation_id = manifest.conversation_id().map_err(map_manifest_error)?;
+    let asset_id = manifest.asset_id().map_err(map_manifest_error)?;
+    let plaintext_length = manifest.plaintext_length().map_err(map_manifest_error)?;
+    let ciphertext_length = manifest.ciphertext_length().map_err(map_manifest_error)?;
+    let ciphertext_digest = manifest.ciphertext_digest().map_err(map_manifest_error)?;
+    let manifest_digest = sha256::hash(manifest.as_bytes());
+    let expires_at = now
+        .checked_add(WAITING_SECONDS)
+        .ok_or(OperationRepositoryError::InvalidInput)?;
+    if let Some(existing_id) = load_replay_operation(
+        connection,
+        conversation_id,
+        asset_id,
+        opened.sender_device_id,
+    )? {
+        if !receiver_operation_matches(connection, existing_id, sealed, manifest)? {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        return Ok(ReceiverCommit::Existing(existing_id));
+    }
+    if receiver_operation_exists(connection, operation_id)? {
+        return Err(OperationRepositoryError::Conflict);
+    }
+    connection
+        .execute(
+            "INSERT INTO receiver_operations (
+               operation_id, conversation_id, asset_id, sender_device_id, state,
+               recipient_key_id, sealed_blob, manifest_digest, ciphertext_name,
+               plaintext_temp_name, plaintext_final_name, plaintext_length,
+               ciphertext_length, ciphertext_digest, created_at, expires_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                uuid_bytes(operation_id),
+                uuid_bytes(conversation_id),
+                uuid_bytes(asset_id),
+                uuid_bytes(opened.sender_device_id),
+                RECEIVER_WAITING,
+                uuid_bytes(sealed.recipient_key_id),
+                sealed.as_bytes().as_slice(),
+                manifest_digest.as_slice(),
+                ciphertext_name(asset_id),
+                plaintext_temp_name(asset_id),
+                plaintext_final_name(asset_id),
+                u64_bytes(plaintext_length),
+                u64_bytes(ciphertext_length),
+                ciphertext_digest.as_slice(),
+                u64_bytes(now),
+                u64_bytes(expires_at),
+            ],
+        )
+        .map_err(|_| OperationRepositoryError::Storage)?;
+    connection
+        .execute(
+            "INSERT INTO attachment_replay_ledger(
+               conversation_id, asset_id, sender_device_id, operation_id
+             ) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                uuid_bytes(conversation_id),
+                uuid_bytes(asset_id),
+                uuid_bytes(opened.sender_device_id),
+                uuid_bytes(operation_id),
+            ],
+        )
+        .map_err(|_| OperationRepositoryError::Storage)?;
+    Ok(ReceiverCommit::Created)
+}
+
+type DevelopmentTransferRow = (
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    i64,
+    Option<Vec<u8>>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+);
+
+fn load_development_transfer_connection(
+    connection: &Connection,
+    operation_id: CanonicalUuid,
+) -> Result<Option<DevelopmentTransferInbox>, OperationRepositoryError> {
+    connection
+        .query_row(
+            "SELECT sender_account_id, sender_device_id, conversation_id, asset_id,
+                    recipient_key_id, state, sealed_blob, plaintext_length,
+                    ciphertext_length, ciphertext_digest, received_at, expires_at
+             FROM development_transfer_inbox WHERE operation_id = ?1",
+            params![uuid_bytes(operation_id)],
+            |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, Vec<u8>>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, Option<Vec<u8>>>(6)?,
+                    row.get::<_, Vec<u8>>(7)?,
+                    row.get::<_, Vec<u8>>(8)?,
+                    row.get::<_, Vec<u8>>(9)?,
+                    row.get::<_, Vec<u8>>(10)?,
+                    row.get::<_, Vec<u8>>(11)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| OperationRepositoryError::Storage)?
+        .map(|row| decode_development_transfer(operation_id, row))
+        .transpose()
+}
+
+fn decode_development_transfer(
+    operation_id: CanonicalUuid,
+    row: DevelopmentTransferRow,
+) -> Result<DevelopmentTransferInbox, OperationRepositoryError> {
+    let recipient_key_id = decode_uuid(row.4)?;
+    let state = match row.5 {
+        DEVELOPMENT_TRANSFER_STAGED => DevelopmentTransferState::Staged,
+        DEVELOPMENT_TRANSFER_PROMOTED => DevelopmentTransferState::Promoted,
+        _ => return Err(OperationRepositoryError::Storage),
+    };
+    let sealed = match (state, row.6) {
+        (DevelopmentTransferState::Staged, Some(bytes)) => Some(
+            SealedManifest::parse(recipient_key_id, &bytes)
+                .map_err(|_| OperationRepositoryError::Storage)?,
+        ),
+        (DevelopmentTransferState::Promoted, None) => None,
+        _ => return Err(OperationRepositoryError::Storage),
+    };
+    Ok(DevelopmentTransferInbox {
+        operation_id,
+        sender_account_id: decode_uuid(row.0)?,
+        sender_device_id: decode_uuid(row.1)?,
+        conversation_id: decode_uuid(row.2)?,
+        asset_id: decode_uuid(row.3)?,
+        recipient_key_id,
+        sealed,
+        plaintext_length: decode_u64(row.7)?,
+        ciphertext_length: decode_u64(row.8)?,
+        ciphertext_digest: exact_array(row.9)?,
+        received_at: decode_u64(row.10)?,
+        expires_at: decode_u64(row.11)?,
+        state,
+    })
+}
+
+fn development_transfer_equal(
+    left: &DevelopmentTransferInbox,
+    right: &DevelopmentTransferInbox,
+) -> bool {
+    let sealed_equal = match (&left.sealed, &right.sealed) {
+        (Some(left), Some(right)) => utils::memcmp(left.as_bytes(), right.as_bytes()),
+        (None, None) => true,
+        _ => false,
+    };
+    uuid_equal(left.operation_id, right.operation_id)
+        && uuid_equal(left.sender_account_id, right.sender_account_id)
+        && uuid_equal(left.sender_device_id, right.sender_device_id)
+        && uuid_equal(left.conversation_id, right.conversation_id)
+        && uuid_equal(left.asset_id, right.asset_id)
+        && uuid_equal(left.recipient_key_id, right.recipient_key_id)
+        && sealed_equal
+        && left.plaintext_length == right.plaintext_length
+        && left.ciphertext_length == right.ciphertext_length
+        && crypto_verify::verify_32(&left.ciphertext_digest, &right.ciphertext_digest)
+        && left.state == right.state
+}
+
+fn development_transfer_matches_opened(
+    staged: &DevelopmentTransferInbox,
+    opened: &OpenedManifest,
+) -> Result<bool, OperationRepositoryError> {
+    let Some(staged_sealed) = staged.sealed.as_ref() else {
+        return Ok(false);
+    };
+    let manifest = opened.manifest();
+    Ok(uuid_equal(staged.sender_device_id, opened.sender_device_id)
+        && uuid_equal(
+            staged.recipient_key_id,
+            opened.source_sealed().recipient_key_id,
+        )
+        && utils::memcmp(staged_sealed.as_bytes(), opened.source_sealed().as_bytes())
+        && uuid_equal(
+            staged.conversation_id,
+            manifest.conversation_id().map_err(map_manifest_error)?,
+        )
+        && uuid_equal(
+            staged.asset_id,
+            manifest.asset_id().map_err(map_manifest_error)?,
+        )
+        && staged.plaintext_length == manifest.plaintext_length().map_err(map_manifest_error)?
+        && staged.ciphertext_length == manifest.ciphertext_length().map_err(map_manifest_error)?
+        && crypto_verify::verify_32(
+            &staged.ciphertext_digest,
+            &manifest.ciphertext_digest().map_err(map_manifest_error)?,
+        ))
 }
 
 type SenderIdentityRow = (CanonicalUuid, CanonicalUuid, CanonicalUuid, i64);
@@ -1672,7 +2074,7 @@ mod tests {
     }
 
     #[test]
-    fn migrates_v1_state_to_v2_without_rewriting_operation_rows()
+    fn migrates_v1_state_to_v3_without_rewriting_operation_rows()
     -> Result<(), OperationRepositoryError> {
         let path = std::env::temp_dir().join(format!(
             "mowy-p2-operation-v1-migration-{}.sqlite3",
@@ -1745,6 +2147,104 @@ mod tests {
         for forbidden in ["secret", "private", "attachment_key", "archive_key"] {
             assert!(!schema.to_ascii_lowercase().contains(forbidden));
         }
+        Ok(())
+    }
+
+    #[test]
+    fn development_transfer_is_staged_unopened_then_atomically_promoted()
+    -> Result<(), OperationRepositoryError> {
+        let mut repository = OperationRepository::in_memory()?;
+        let operation_id = uuid(7)?;
+        let sealed_message = sealed(4, 0x90)?;
+        let transfer = DevelopmentTransferInbox {
+            operation_id,
+            sender_account_id: uuid(5)?,
+            sender_device_id: uuid(3)?,
+            conversation_id: uuid(1)?,
+            asset_id: uuid(2)?,
+            recipient_key_id: uuid(4)?,
+            sealed: Some(sealed_message),
+            plaintext_length: 65_537,
+            ciphertext_length: 65_627,
+            ciphertext_digest: [0x80; DIGEST_BYTES],
+            received_at: 100,
+            expires_at: 86_500,
+            state: DevelopmentTransferState::Staged,
+        };
+        repository.stage_development_transfer(transfer)?;
+        repository.stage_development_transfer(transfer)?;
+        assert_eq!(
+            repository.load_development_transfer(operation_id)?,
+            Some(transfer)
+        );
+        assert_eq!(repository.receiver_state(operation_id)?, None);
+
+        let opened = OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed_message);
+        assert_eq!(
+            repository.promote_development_transfer(operation_id, &opened, 101)?,
+            ReceiverCommit::Created
+        );
+        let promoted = repository
+            .load_development_transfer(operation_id)?
+            .ok_or(OperationRepositoryError::Storage)?;
+        assert_eq!(promoted.state, DevelopmentTransferState::Promoted);
+        assert!(promoted.sealed.is_none());
+        assert_eq!(
+            repository.receiver_state(operation_id)?,
+            Some(ReceiverState::WaitingForCiphertext)
+        );
+        assert_eq!(
+            repository
+                .load_waiting(operation_id)?
+                .ok_or(OperationRepositoryError::Storage)?
+                .sealed,
+            sealed_message
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn failed_development_promotion_retains_only_staged_state()
+    -> Result<(), OperationRepositoryError> {
+        let mut repository = OperationRepository::in_memory()?;
+        let operation_id = uuid(7)?;
+        let sealed_message = sealed(4, 0x90)?;
+        repository.stage_development_transfer(DevelopmentTransferInbox {
+            operation_id,
+            sender_account_id: uuid(5)?,
+            sender_device_id: uuid(3)?,
+            conversation_id: uuid(1)?,
+            asset_id: uuid(2)?,
+            recipient_key_id: uuid(4)?,
+            sealed: Some(sealed_message),
+            plaintext_length: 65_537,
+            ciphertext_length: 65_627,
+            ciphertext_digest: [0x80; DIGEST_BYTES],
+            received_at: 100,
+            expires_at: 86_500,
+            state: DevelopmentTransferState::Staged,
+        })?;
+        repository
+            .connection
+            .execute_batch(
+                "CREATE TEMP TRIGGER fail_development_promotion
+                 BEFORE UPDATE ON development_transfer_inbox
+                 BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;",
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let opened = OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed_message);
+        assert_eq!(
+            repository
+                .promote_development_transfer(operation_id, &opened, 101)
+                .err(),
+            Some(OperationRepositoryError::Storage)
+        );
+        assert_eq!(repository.receiver_state(operation_id)?, None);
+        let staged = repository
+            .load_development_transfer(operation_id)?
+            .ok_or(OperationRepositoryError::Storage)?;
+        assert_eq!(staged.state, DevelopmentTransferState::Staged);
+        assert_eq!(staged.sealed, Some(sealed_message));
         Ok(())
     }
 }

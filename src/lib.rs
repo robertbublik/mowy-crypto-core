@@ -61,8 +61,12 @@ mod receiver_lifecycle;
 mod bridge;
 
 pub use bridge::{
-    MowyCancellation, MowyCoreCode, MowyProofReceipt, MowyProofResult, NativeBridgeResponse,
-    NativeProtectedKeyState, NativeProtectedKeyStore, run_development_proof,
+    MowyCancellation, MowyCodeResult, MowyCoreCode, MowyDevelopmentTransfer,
+    MowyPreparedTransferResult, MowyProofReceipt, MowyProofResult, MowyPublicBundle,
+    MowyPublicBundleResult, MowyStagedTransferResult, NativeBridgeResponse,
+    NativeProtectedKeyState, NativeProtectedKeyStore, cleanup_development_sender,
+    prepare_development_transfer, publish_development_bundle, resume_development_transfer,
+    run_development_proof, stage_development_transfer,
 };
 
 /// Identifies the pinned public-core profile without accepting hostile input.
@@ -75,9 +79,12 @@ pub fn core_profile_version() -> u16 {
 #[allow(unsafe_code)]
 mod ffi {
     use crate::{
-        MowyCancellation, MowyCoreCode, MowyProofReceipt, MowyProofResult, NativeBridgeResponse,
-        NativeProtectedKeyState, NativeProtectedKeyStore, core_profile_version,
-        run_development_proof,
+        MowyCancellation, MowyCodeResult, MowyCoreCode, MowyDevelopmentTransfer,
+        MowyPreparedTransferResult, MowyProofReceipt, MowyProofResult, MowyPublicBundle,
+        MowyPublicBundleResult, MowyStagedTransferResult, NativeBridgeResponse,
+        NativeProtectedKeyState, NativeProtectedKeyStore, cleanup_development_sender,
+        core_profile_version, prepare_development_transfer, publish_development_bundle,
+        resume_development_transfer, run_development_proof, stage_development_transfer,
     };
 
     uniffi::include_scaffolding!("mowy_crypto_core");

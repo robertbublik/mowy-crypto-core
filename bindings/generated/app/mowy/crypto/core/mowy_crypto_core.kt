@@ -733,9 +733,19 @@ internal object IntegrityCheckingUniffiLib {
         uniffiCheckContractApiVersion(this)
         uniffiCheckApiChecksums(this)
     }
+    external fun uniffi_mowy_crypto_core_checksum_func_cleanup_development_sender(
+    ): Int
     external fun uniffi_mowy_crypto_core_checksum_func_core_profile_version(
     ): Int
+    external fun uniffi_mowy_crypto_core_checksum_func_prepare_development_transfer(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_func_publish_development_bundle(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_func_resume_development_transfer(
+    ): Int
     external fun uniffi_mowy_crypto_core_checksum_func_run_development_proof(
+    ): Int
+    external fun uniffi_mowy_crypto_core_checksum_func_stage_development_transfer(
     ): Int
     external fun uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled(
     ): Int
@@ -778,9 +788,19 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_mowy_crypto_core_fn_init_callback_vtable_nativeprotectedkeystore(`vtable`: UniffiVTableCallbackInterfaceNativeProtectedKeyStore,
     ): Unit
+    external fun uniffi_mowy_crypto_core_fn_func_cleanup_development_sender(`protectedStore`: Long,`now`: Long,`transfer`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_mowy_crypto_core_fn_func_core_profile_version(uniffi_out_err: UniffiRustCallStatus,
     ): Int
+    external fun uniffi_mowy_crypto_core_fn_func_prepare_development_transfer(`protectedStore`: Long,`cancellation`: Long,`now`: Long,`plaintextLength`: Long,`recipientBundle`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_mowy_crypto_core_fn_func_publish_development_bundle(`protectedStore`: Long,`now`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_mowy_crypto_core_fn_func_resume_development_transfer(`protectedStore`: Long,`cancellation`: Long,`now`: Long,`receiverOperationId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_mowy_crypto_core_fn_func_run_development_proof(`protectedStore`: Long,`cancellation`: Long,`now`: Long,`plaintextLength`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_mowy_crypto_core_fn_func_stage_development_transfer(`protectedStore`: Long,`now`: Long,`senderBundle`: RustBuffer.ByValue,`transfer`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun ffi_mowy_crypto_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
@@ -901,10 +921,25 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
+    if (lib.uniffi_mowy_crypto_core_checksum_func_cleanup_development_sender() != 22197) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mowy_crypto_core_checksum_func_core_profile_version() != 39217) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mowy_crypto_core_checksum_func_prepare_development_transfer() != 7253) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_func_publish_development_bundle() != 10256) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_func_resume_development_transfer() != 10760) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mowy_crypto_core_checksum_func_run_development_proof() != 62088) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mowy_crypto_core_checksum_func_stage_development_transfer() != 64872) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled() != 53474) {
@@ -1223,6 +1258,155 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 
 
 
+data class MowyCodeResult (
+    var `code`: MowyCoreCode
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyCodeResult: FfiConverterRustBuffer<MowyCodeResult> {
+    override fun read(buf: ByteBuffer): MowyCodeResult {
+        return MowyCodeResult(
+            FfiConverterTypeMowyCoreCode.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyCodeResult) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`)
+    )
+
+    override fun write(value: MowyCodeResult, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+    }
+}
+
+
+
+data class MowyDevelopmentTransfer (
+    var `senderOperationId`: kotlin.String
+    ,
+    var `receiverOperationId`: kotlin.String
+    ,
+    var `conversationId`: kotlin.String
+    ,
+    var `assetId`: kotlin.String
+    ,
+    var `recipientKeyId`: kotlin.String
+    ,
+    var `sealedManifest`: kotlin.String
+    ,
+    var `plaintextLength`: kotlin.ULong
+    ,
+    var `ciphertextLength`: kotlin.ULong
+    ,
+    var `ciphertextSha256`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyDevelopmentTransfer: FfiConverterRustBuffer<MowyDevelopmentTransfer> {
+    override fun read(buf: ByteBuffer): MowyDevelopmentTransfer {
+        return MowyDevelopmentTransfer(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyDevelopmentTransfer) = (
+            FfiConverterString.allocationSize(value.`senderOperationId`) +
+            FfiConverterString.allocationSize(value.`receiverOperationId`) +
+            FfiConverterString.allocationSize(value.`conversationId`) +
+            FfiConverterString.allocationSize(value.`assetId`) +
+            FfiConverterString.allocationSize(value.`recipientKeyId`) +
+            FfiConverterString.allocationSize(value.`sealedManifest`) +
+            FfiConverterULong.allocationSize(value.`plaintextLength`) +
+            FfiConverterULong.allocationSize(value.`ciphertextLength`) +
+            FfiConverterString.allocationSize(value.`ciphertextSha256`)
+    )
+
+    override fun write(value: MowyDevelopmentTransfer, buf: ByteBuffer) {
+            FfiConverterString.write(value.`senderOperationId`, buf)
+            FfiConverterString.write(value.`receiverOperationId`, buf)
+            FfiConverterString.write(value.`conversationId`, buf)
+            FfiConverterString.write(value.`assetId`, buf)
+            FfiConverterString.write(value.`recipientKeyId`, buf)
+            FfiConverterString.write(value.`sealedManifest`, buf)
+            FfiConverterULong.write(value.`plaintextLength`, buf)
+            FfiConverterULong.write(value.`ciphertextLength`, buf)
+            FfiConverterString.write(value.`ciphertextSha256`, buf)
+    }
+}
+
+
+
+data class MowyPreparedTransferResult (
+    var `code`: MowyCoreCode
+    ,
+    var `transfer`: MowyDevelopmentTransfer?
+    ,
+    var `ciphertextSourcePath`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyPreparedTransferResult: FfiConverterRustBuffer<MowyPreparedTransferResult> {
+    override fun read(buf: ByteBuffer): MowyPreparedTransferResult {
+        return MowyPreparedTransferResult(
+            FfiConverterTypeMowyCoreCode.read(buf),
+            FfiConverterOptionalTypeMowyDevelopmentTransfer.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyPreparedTransferResult) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`) +
+            FfiConverterOptionalTypeMowyDevelopmentTransfer.allocationSize(value.`transfer`) +
+            FfiConverterString.allocationSize(value.`ciphertextSourcePath`)
+    )
+
+    override fun write(value: MowyPreparedTransferResult, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+            FfiConverterOptionalTypeMowyDevelopmentTransfer.write(value.`transfer`, buf)
+            FfiConverterString.write(value.`ciphertextSourcePath`, buf)
+    }
+}
+
+
+
 data class MowyProofReceipt (
     var `proofId`: kotlin.String
     ,
@@ -1309,6 +1493,150 @@ public object FfiConverterTypeMowyProofResult: FfiConverterRustBuffer<MowyProofR
     override fun write(value: MowyProofResult, buf: ByteBuffer) {
             FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
             FfiConverterOptionalTypeMowyProofReceipt.write(value.`receipt`, buf)
+    }
+}
+
+
+
+data class MowyPublicBundle (
+    var `accountId`: kotlin.String
+    ,
+    var `deviceId`: kotlin.String
+    ,
+    var `agreementKeyId`: kotlin.String
+    ,
+    var `identityPublicKey`: kotlin.String
+    ,
+    var `agreementPublicKey`: kotlin.String
+    ,
+    var `notBefore`: kotlin.ULong
+    ,
+    var `notAfter`: kotlin.ULong
+    ,
+    var `signature`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyPublicBundle: FfiConverterRustBuffer<MowyPublicBundle> {
+    override fun read(buf: ByteBuffer): MowyPublicBundle {
+        return MowyPublicBundle(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyPublicBundle) = (
+            FfiConverterString.allocationSize(value.`accountId`) +
+            FfiConverterString.allocationSize(value.`deviceId`) +
+            FfiConverterString.allocationSize(value.`agreementKeyId`) +
+            FfiConverterString.allocationSize(value.`identityPublicKey`) +
+            FfiConverterString.allocationSize(value.`agreementPublicKey`) +
+            FfiConverterULong.allocationSize(value.`notBefore`) +
+            FfiConverterULong.allocationSize(value.`notAfter`) +
+            FfiConverterString.allocationSize(value.`signature`)
+    )
+
+    override fun write(value: MowyPublicBundle, buf: ByteBuffer) {
+            FfiConverterString.write(value.`accountId`, buf)
+            FfiConverterString.write(value.`deviceId`, buf)
+            FfiConverterString.write(value.`agreementKeyId`, buf)
+            FfiConverterString.write(value.`identityPublicKey`, buf)
+            FfiConverterString.write(value.`agreementPublicKey`, buf)
+            FfiConverterULong.write(value.`notBefore`, buf)
+            FfiConverterULong.write(value.`notAfter`, buf)
+            FfiConverterString.write(value.`signature`, buf)
+    }
+}
+
+
+
+data class MowyPublicBundleResult (
+    var `code`: MowyCoreCode
+    ,
+    var `bundle`: MowyPublicBundle?
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyPublicBundleResult: FfiConverterRustBuffer<MowyPublicBundleResult> {
+    override fun read(buf: ByteBuffer): MowyPublicBundleResult {
+        return MowyPublicBundleResult(
+            FfiConverterTypeMowyCoreCode.read(buf),
+            FfiConverterOptionalTypeMowyPublicBundle.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyPublicBundleResult) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`) +
+            FfiConverterOptionalTypeMowyPublicBundle.allocationSize(value.`bundle`)
+    )
+
+    override fun write(value: MowyPublicBundleResult, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+            FfiConverterOptionalTypeMowyPublicBundle.write(value.`bundle`, buf)
+    }
+}
+
+
+
+data class MowyStagedTransferResult (
+    var `code`: MowyCoreCode
+    ,
+    var `ciphertextDestinationPath`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMowyStagedTransferResult: FfiConverterRustBuffer<MowyStagedTransferResult> {
+    override fun read(buf: ByteBuffer): MowyStagedTransferResult {
+        return MowyStagedTransferResult(
+            FfiConverterTypeMowyCoreCode.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MowyStagedTransferResult) = (
+            FfiConverterTypeMowyCoreCode.allocationSize(value.`code`) +
+            FfiConverterString.allocationSize(value.`ciphertextDestinationPath`)
+    )
+
+    override fun write(value: MowyStagedTransferResult, buf: ByteBuffer) {
+            FfiConverterTypeMowyCoreCode.write(value.`code`, buf)
+            FfiConverterString.write(value.`ciphertextDestinationPath`, buf)
     }
 }
 
@@ -1705,6 +2033,38 @@ public object FfiConverterTypeNativeProtectedKeyStore: FfiConverterCallbackInter
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeMowyDevelopmentTransfer: FfiConverterRustBuffer<MowyDevelopmentTransfer?> {
+    override fun read(buf: ByteBuffer): MowyDevelopmentTransfer? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeMowyDevelopmentTransfer.read(buf)
+    }
+
+    override fun allocationSize(value: MowyDevelopmentTransfer?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeMowyDevelopmentTransfer.allocationSize(value)
+        }
+    }
+
+    override fun write(value: MowyDevelopmentTransfer?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeMowyDevelopmentTransfer.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeMowyProofReceipt: FfiConverterRustBuffer<MowyProofReceipt?> {
     override fun read(buf: ByteBuffer): MowyProofReceipt? {
         if (buf.get().toInt() == 0) {
@@ -1729,12 +2089,84 @@ public object FfiConverterOptionalTypeMowyProofReceipt: FfiConverterRustBuffer<M
             FfiConverterTypeMowyProofReceipt.write(value, buf)
         }
     }
-} fun `coreProfileVersion`(): kotlin.UShort {
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeMowyPublicBundle: FfiConverterRustBuffer<MowyPublicBundle?> {
+    override fun read(buf: ByteBuffer): MowyPublicBundle? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeMowyPublicBundle.read(buf)
+    }
+
+    override fun allocationSize(value: MowyPublicBundle?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeMowyPublicBundle.allocationSize(value)
+        }
+    }
+
+    override fun write(value: MowyPublicBundle?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeMowyPublicBundle.write(value, buf)
+        }
+    }
+} fun `cleanupDevelopmentSender`(`protectedStore`: NativeProtectedKeyStore, `now`: kotlin.ULong, `transfer`: MowyDevelopmentTransfer): MowyCodeResult {
+            return FfiConverterTypeMowyCodeResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_cleanup_development_sender(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterULong.lower(`now`),FfiConverterTypeMowyDevelopmentTransfer.lower(`transfer`),_status)
+}
+    )
+    }
+
+ fun `coreProfileVersion`(): kotlin.UShort {
             return FfiConverterUShort.lift(
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_mowy_crypto_core_fn_func_core_profile_version(
 
         _status)
+}
+    )
+    }
+
+ fun `prepareDevelopmentTransfer`(`protectedStore`: NativeProtectedKeyStore, `cancellation`: MowyCancellation, `now`: kotlin.ULong, `plaintextLength`: kotlin.ULong, `recipientBundle`: MowyPublicBundle): MowyPreparedTransferResult {
+            return FfiConverterTypeMowyPreparedTransferResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_prepare_development_transfer(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterTypeMowyCancellation.lower(`cancellation`),FfiConverterULong.lower(`now`),FfiConverterULong.lower(`plaintextLength`),FfiConverterTypeMowyPublicBundle.lower(`recipientBundle`),_status)
+}
+    )
+    }
+
+ fun `publishDevelopmentBundle`(`protectedStore`: NativeProtectedKeyStore, `now`: kotlin.ULong): MowyPublicBundleResult {
+            return FfiConverterTypeMowyPublicBundleResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_publish_development_bundle(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterULong.lower(`now`),_status)
+}
+    )
+    }
+
+ fun `resumeDevelopmentTransfer`(`protectedStore`: NativeProtectedKeyStore, `cancellation`: MowyCancellation, `now`: kotlin.ULong, `receiverOperationId`: kotlin.String): MowyProofResult {
+            return FfiConverterTypeMowyProofResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_resume_development_transfer(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterTypeMowyCancellation.lower(`cancellation`),FfiConverterULong.lower(`now`),FfiConverterString.lower(`receiverOperationId`),_status)
 }
     )
     }
@@ -1745,6 +2177,16 @@ public object FfiConverterOptionalTypeMowyProofReceipt: FfiConverterRustBuffer<M
     UniffiLib.uniffi_mowy_crypto_core_fn_func_run_development_proof(
 
         FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterTypeMowyCancellation.lower(`cancellation`),FfiConverterULong.lower(`now`),FfiConverterULong.lower(`plaintextLength`),_status)
+}
+    )
+    }
+
+ fun `stageDevelopmentTransfer`(`protectedStore`: NativeProtectedKeyStore, `now`: kotlin.ULong, `senderBundle`: MowyPublicBundle, `transfer`: MowyDevelopmentTransfer): MowyStagedTransferResult {
+            return FfiConverterTypeMowyStagedTransferResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mowy_crypto_core_fn_func_stage_development_transfer(
+
+        FfiConverterTypeNativeProtectedKeyStore.lower(`protectedStore`),FfiConverterULong.lower(`now`),FfiConverterTypeMowyPublicBundle.lower(`senderBundle`),FfiConverterTypeMowyDevelopmentTransfer.lower(`transfer`),_status)
 }
     )
     }
