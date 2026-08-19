@@ -5,6 +5,7 @@ set -eu
 mowy_repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 mowy_cargo_bin=${MOWY_CARGO_BIN:-cargo}
 mowy_android_ndk=${MOWY_ANDROID_NDK_HOME:-${ANDROID_NDK_HOME:-}}
+mowy_ios_deployment_target=${MOWY_IOS_DEPLOYMENT_TARGET:-15.1}
 
 if [ -n "${MOWY_RUSTC_BIN:-}" ]; then
   RUSTC=$MOWY_RUSTC_BIN
@@ -21,6 +22,9 @@ if [ ! -d "$mowy_android_ndk/toolchains/llvm/prebuilt" ]; then
   echo "set MOWY_ANDROID_NDK_HOME to Android NDK 27.1.12297006" >&2
   exit 1
 fi
+
+IPHONEOS_DEPLOYMENT_TARGET=$mowy_ios_deployment_target
+export IPHONEOS_DEPLOYMENT_TARGET
 
 case $(uname -s) in
   Darwin) mowy_ndk_host=darwin-x86_64 ;;

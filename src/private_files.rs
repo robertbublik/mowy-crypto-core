@@ -1,16 +1,19 @@
 //! Package-owned, same-volume file lifecycle for attachment envelope operations.
 
 use std::fs::{File, OpenOptions};
+use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use zeroize::Zeroizing;
 
 use crate::archive::{ArchiveError, ArchiveKey, VerifiedArchive, create_and_verify_archive};
 use crate::attachment_envelope::{
     AttachmentEnvelopeError, CancellationCheck, EncryptedAttachment, EnvelopeHeader,
     decrypt_stream, encrypt_stream,
 };
-use crate::attachment_manifest::AttachmentManifest;
+use crate::attachment_manifest::{AttachmentManifest, canonical_ciphertext_length};
 use crate::key_bundle::CanonicalUuid;
 
 static FILE_OPERATION_LOCK: Mutex<()> = Mutex::new(());
@@ -182,6 +185,62 @@ impl PrivateFileStore {
             ciphertext_path: final_path,
             encrypted,
         })
+    }
+
+    pub(crate) fn create_development_source<C: CancellationCheck>(
+        &mut self,
+        asset_id: CanonicalUuid,
+        plaintext_length: u64,
+        cancellation: &mut C,
+    ) -> Result<(), PrivateFileError> {
+        canonical_ciphertext_length(plaintext_length)
+            .map_err(|_| PrivateFileError::InvalidInput)?;
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        let source_path = self.source_path(asset_id);
+        reject_existing(&source_path)?;
+        let mut source = create_private_file(&source_path)?;
+        let mut block = Zeroizing::new([0_u8; 8_192]);
+        let mut written = 0_u64;
+        while written < plaintext_length {
+            if cancellation.is_cancelled() {
+                drop(source);
+                remove_exact_if_file(&source_path);
+                return Err(PrivateFileError::Cancelled);
+            }
+            let remaining = plaintext_length
+                .checked_sub(written)
+                .ok_or(PrivateFileError::InvalidInput)?;
+            let count = usize::try_from(remaining.min(block.len() as u64))
+                .map_err(|_| PrivateFileError::InvalidInput)?;
+            for (offset, byte) in block[..count].iter_mut().enumerate() {
+                let index = written
+                    .checked_add(offset as u64)
+                    .ok_or(PrivateFileError::InvalidInput)?;
+                *byte = (index % 251) as u8;
+            }
+            if source.write_all(&block[..count]).is_err() {
+                drop(source);
+                remove_exact_if_file(&source_path);
+                return Err(PrivateFileError::Io);
+            }
+            written = written
+                .checked_add(count as u64)
+                .ok_or(PrivateFileError::InvalidInput)?;
+        }
+        if cancellation.is_cancelled() || source.sync_all().is_err() {
+            drop(source);
+            remove_exact_if_file(&source_path);
+            return Err(if cancellation.is_cancelled() {
+                PrivateFileError::Cancelled
+            } else {
+                PrivateFileError::Io
+            });
+        }
+        drop(source);
+        sync_directory(&self.source_directory)?;
+        validate_regular_file(&source_path, &self.source_directory)
     }
 
     pub(crate) fn decrypt_to_unverified_temp<C: CancellationCheck>(
@@ -421,6 +480,31 @@ impl PrivateFileStore {
         asset_id: CanonicalUuid,
     ) -> Result<File, PrivateFileError> {
         open_regular_file(&self.archive_path(asset_id), &self.archive_directory)
+    }
+
+    pub(crate) fn cleanup_development_artifacts(
+        &mut self,
+        asset_id: CanonicalUuid,
+    ) -> Result<(), PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        remove_named_file_if_present(&self.source_path(asset_id), &self.source_directory)?;
+        remove_named_file_if_present(
+            &self.receive_temp_path(asset_id),
+            &self.receive_temp_directory,
+        )?;
+        remove_named_file_if_present(
+            &self.verified_plaintext_path(asset_id),
+            &self.verified_directory,
+        )?;
+        remove_named_file_if_present(
+            &self.ciphertext_temp_path(asset_id),
+            &self.ciphertext_directory,
+        )?;
+        remove_named_file_if_present(&self.ciphertext_path(asset_id), &self.ciphertext_directory)?;
+        remove_named_file_if_present(&self.archive_temp_path(asset_id), &self.archive_directory)?;
+        remove_named_file_if_present(&self.archive_path(asset_id), &self.archive_directory)
     }
 }
 

@@ -12,7 +12,7 @@ let package = Package(
         .target(
             name: "MowyProtectedKeyStorage",
             path: ".",
-            exclude: ["Tests"],
+            exclude: ["MowyProofBridge.swift", "Tests", "proof-app"],
             sources: ["MowyProtectedKeyStore.swift"]
         ),
         .testTarget(

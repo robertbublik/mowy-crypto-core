@@ -414,7 +414,29 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 
 
 // Public interface members begin here.
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
+    typealias FfiType = UInt8
+    typealias SwiftType = UInt8
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: UInt8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
@@ -428,6 +450,46 @@ fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
     }
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterBool : FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -477,9 +539,924 @@ fileprivate struct FfiConverterString: FfiConverter {
         writeBytes(&buf, value.utf8)
     }
 }
+
+
+public struct MowyProofReceipt: Equatable, Hashable {
+    public var proofId: String
+    public var plaintextLength: UInt64
+    public var ciphertextLength: UInt64
+    public var ciphertextSha256: String
+    public var archiveSha256: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(proofId: String, plaintextLength: UInt64, ciphertextLength: UInt64, ciphertextSha256: String, archiveSha256: String) {
+        self.proofId = proofId
+        self.plaintextLength = plaintextLength
+        self.ciphertextLength = ciphertextLength
+        self.ciphertextSha256 = ciphertextSha256
+        self.archiveSha256 = archiveSha256
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyProofReceipt: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyProofReceipt: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyProofReceipt {
+        return
+            try MowyProofReceipt(
+                proofId: FfiConverterString.read(from: &buf),
+                plaintextLength: FfiConverterUInt64.read(from: &buf),
+                ciphertextLength: FfiConverterUInt64.read(from: &buf),
+                ciphertextSha256: FfiConverterString.read(from: &buf),
+                archiveSha256: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyProofReceipt, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.proofId, into: &buf)
+        FfiConverterUInt64.write(value.plaintextLength, into: &buf)
+        FfiConverterUInt64.write(value.ciphertextLength, into: &buf)
+        FfiConverterString.write(value.ciphertextSha256, into: &buf)
+        FfiConverterString.write(value.archiveSha256, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyProofReceipt_lift(_ buf: RustBuffer) throws -> MowyProofReceipt {
+    return try FfiConverterTypeMowyProofReceipt.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyProofReceipt_lower(_ value: MowyProofReceipt) -> RustBuffer {
+    return FfiConverterTypeMowyProofReceipt.lower(value)
+}
+
+
+public struct MowyProofResult: Equatable, Hashable {
+    public var code: MowyCoreCode
+    public var receipt: MowyProofReceipt?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode, receipt: MowyProofReceipt?) {
+        self.code = code
+        self.receipt = receipt
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyProofResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyProofResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyProofResult {
+        return
+            try MowyProofResult(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf),
+                receipt: FfiConverterOptionTypeMowyProofReceipt.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyProofResult, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+        FfiConverterOptionTypeMowyProofReceipt.write(value.receipt, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyProofResult_lift(_ buf: RustBuffer) throws -> MowyProofResult {
+    return try FfiConverterTypeMowyProofResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyProofResult_lower(_ value: MowyProofResult) -> RustBuffer {
+    return FfiConverterTypeMowyProofResult.lower(value)
+}
+
+
+public struct NativeBridgeResponse: Equatable, Hashable {
+    public var code: MowyCoreCode
+    public var flag: Bool
+    public var number: UInt64
+    public var keyState: NativeProtectedKeyState
+    public var path: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode, flag: Bool, number: UInt64, keyState: NativeProtectedKeyState, path: String) {
+        self.code = code
+        self.flag = flag
+        self.number = number
+        self.keyState = keyState
+        self.path = path
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension NativeBridgeResponse: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNativeBridgeResponse: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NativeBridgeResponse {
+        return
+            try NativeBridgeResponse(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf),
+                flag: FfiConverterBool.read(from: &buf),
+                number: FfiConverterUInt64.read(from: &buf),
+                keyState: FfiConverterTypeNativeProtectedKeyState.read(from: &buf),
+                path: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: NativeBridgeResponse, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+        FfiConverterBool.write(value.flag, into: &buf)
+        FfiConverterUInt64.write(value.number, into: &buf)
+        FfiConverterTypeNativeProtectedKeyState.write(value.keyState, into: &buf)
+        FfiConverterString.write(value.path, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeBridgeResponse_lift(_ buf: RustBuffer) throws -> NativeBridgeResponse {
+    return try FfiConverterTypeNativeBridgeResponse.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeBridgeResponse_lower(_ value: NativeBridgeResponse) -> RustBuffer {
+    return FfiConverterTypeNativeBridgeResponse.lower(value)
+}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum MowyCoreCode: Equatable, Hashable {
+
+    case success
+    case invalidInput
+    case unavailable
+    case conflict
+    case storage
+    case authentication
+    case cryptography
+    case cancelled
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyCoreCode: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyCoreCode: FfiConverterRustBuffer {
+    typealias SwiftType = MowyCoreCode
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyCoreCode {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        case 1: return .success
+
+        case 2: return .invalidInput
+
+        case 3: return .unavailable
+
+        case 4: return .conflict
+
+        case 5: return .storage
+
+        case 6: return .authentication
+
+        case 7: return .cryptography
+
+        case 8: return .cancelled
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MowyCoreCode, into buf: inout [UInt8]) {
+        switch value {
+
+
+        case .success:
+            writeInt(&buf, Int32(1))
+
+
+        case .invalidInput:
+            writeInt(&buf, Int32(2))
+
+
+        case .unavailable:
+            writeInt(&buf, Int32(3))
+
+
+        case .conflict:
+            writeInt(&buf, Int32(4))
+
+
+        case .storage:
+            writeInt(&buf, Int32(5))
+
+
+        case .authentication:
+            writeInt(&buf, Int32(6))
+
+
+        case .cryptography:
+            writeInt(&buf, Int32(7))
+
+
+        case .cancelled:
+            writeInt(&buf, Int32(8))
+
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyCoreCode_lift(_ buf: RustBuffer) throws -> MowyCoreCode {
+    return try FfiConverterTypeMowyCoreCode.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyCoreCode_lower(_ value: MowyCoreCode) -> RustBuffer {
+    return FfiConverterTypeMowyCoreCode.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum NativeProtectedKeyState: Equatable, Hashable {
+
+    case absent
+    case present
+    case partial
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension NativeProtectedKeyState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNativeProtectedKeyState: FfiConverterRustBuffer {
+    typealias SwiftType = NativeProtectedKeyState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NativeProtectedKeyState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        case 1: return .absent
+
+        case 2: return .present
+
+        case 3: return .partial
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: NativeProtectedKeyState, into buf: inout [UInt8]) {
+        switch value {
+
+
+        case .absent:
+            writeInt(&buf, Int32(1))
+
+
+        case .present:
+            writeInt(&buf, Int32(2))
+
+
+        case .partial:
+            writeInt(&buf, Int32(3))
+
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeProtectedKeyState_lift(_ buf: RustBuffer) throws -> NativeProtectedKeyState {
+    return try FfiConverterTypeNativeProtectedKeyState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeProtectedKeyState_lower(_ value: NativeProtectedKeyState) -> RustBuffer {
+    return FfiConverterTypeNativeProtectedKeyState.lower(value)
+}
+
+
+
+
+
+public protocol MowyCancellation: AnyObject, Sendable {
+
+    func isCancelled()  -> NativeBridgeResponse
+
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceMowyCancellation {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceMowyCancellation = UniffiVTableCallbackInterfaceMowyCancellation(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterCallbackInterfaceMowyCancellation.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface MowyCancellation: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterCallbackInterfaceMowyCancellation.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface MowyCancellation: handle missing in uniffiClone")
+            }
+        },
+        isCancelled: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMowyCancellation.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.isCancelled(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceMowyCancellation> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceMowyCancellation>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitMowyCancellation() {
+    uniffi_mowy_crypto_core_fn_init_callback_vtable_mowycancellation(UniffiCallbackInterfaceMowyCancellation.vtablePtr)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceMowyCancellation {
+    fileprivate static let handleMap = UniffiHandleMap<MowyCancellation>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMowyCancellation : FfiConverter {
+    typealias SwiftType = MowyCancellation
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceMowyCancellation_lift(_ handle: UInt64) throws -> MowyCancellation {
+    return try FfiConverterCallbackInterfaceMowyCancellation.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceMowyCancellation_lower(_ v: MowyCancellation) -> UInt64 {
+    return FfiConverterCallbackInterfaceMowyCancellation.lower(v)
+}
+
+
+
+
+public protocol NativeProtectedKeyStore: AnyObject, Sendable {
+
+    func protectedDataAvailable()  -> NativeBridgeResponse
+
+    func keyState()  -> NativeBridgeResponse
+
+    func installationMarkerExists()  -> NativeBridgeResponse
+
+    func databaseExists()  -> NativeBridgeResponse
+
+    func prepareNamespaces()  -> NativeBridgeResponse
+
+    func commitCompanions()  -> NativeBridgeResponse
+
+    func storeNew(word0: UInt64, word1: UInt64, word2: UInt64, word3: UInt64, word4: UInt64, word5: UInt64, word6: UInt64, word7: UInt64, word8: UInt64, word9: UInt64, word10: UInt64, word11: UInt64)  -> NativeBridgeResponse
+
+    func beginLoad()  -> NativeBridgeResponse
+
+    func loadWord(token: UInt64, index: UInt8)  -> NativeBridgeResponse
+
+    func finishLoad(token: UInt64)  -> NativeBridgeResponse
+
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceNativeProtectedKeyStore {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceNativeProtectedKeyStore = UniffiVTableCallbackInterfaceNativeProtectedKeyStore(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface NativeProtectedKeyStore: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface NativeProtectedKeyStore: handle missing in uniffiClone")
+            }
+        },
+        protectedDataAvailable: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.protectedDataAvailable(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        keyState: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.keyState(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        installationMarkerExists: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.installationMarkerExists(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        databaseExists: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.databaseExists(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        prepareNamespaces: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.prepareNamespaces(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        commitCompanions: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.commitCompanions(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        storeNew: { (
+            uniffiHandle: UInt64,
+            word0: UInt64,
+            word1: UInt64,
+            word2: UInt64,
+            word3: UInt64,
+            word4: UInt64,
+            word5: UInt64,
+            word6: UInt64,
+            word7: UInt64,
+            word8: UInt64,
+            word9: UInt64,
+            word10: UInt64,
+            word11: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.storeNew(
+                     word0: try FfiConverterUInt64.lift(word0),
+                     word1: try FfiConverterUInt64.lift(word1),
+                     word2: try FfiConverterUInt64.lift(word2),
+                     word3: try FfiConverterUInt64.lift(word3),
+                     word4: try FfiConverterUInt64.lift(word4),
+                     word5: try FfiConverterUInt64.lift(word5),
+                     word6: try FfiConverterUInt64.lift(word6),
+                     word7: try FfiConverterUInt64.lift(word7),
+                     word8: try FfiConverterUInt64.lift(word8),
+                     word9: try FfiConverterUInt64.lift(word9),
+                     word10: try FfiConverterUInt64.lift(word10),
+                     word11: try FfiConverterUInt64.lift(word11)
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        beginLoad: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.beginLoad(
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        loadWord: { (
+            uniffiHandle: UInt64,
+            token: UInt64,
+            index: UInt8,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.loadWord(
+                     token: try FfiConverterUInt64.lift(token),
+                     index: try FfiConverterUInt8.lift(index)
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        finishLoad: { (
+            uniffiHandle: UInt64,
+            token: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> NativeBridgeResponse in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceNativeProtectedKeyStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.finishLoad(
+                     token: try FfiConverterUInt64.lift(token)
+                )
+            }
+
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeNativeBridgeResponse_lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceNativeProtectedKeyStore> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceNativeProtectedKeyStore>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitNativeProtectedKeyStore() {
+    uniffi_mowy_crypto_core_fn_init_callback_vtable_nativeprotectedkeystore(UniffiCallbackInterfaceNativeProtectedKeyStore.vtablePtr)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceNativeProtectedKeyStore {
+    fileprivate static let handleMap = UniffiHandleMap<NativeProtectedKeyStore>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceNativeProtectedKeyStore : FfiConverter {
+    typealias SwiftType = NativeProtectedKeyStore
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceNativeProtectedKeyStore_lift(_ handle: UInt64) throws -> NativeProtectedKeyStore {
+    return try FfiConverterCallbackInterfaceNativeProtectedKeyStore.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(_ v: NativeProtectedKeyStore) -> UInt64 {
+    return FfiConverterCallbackInterfaceNativeProtectedKeyStore.lower(v)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMowyProofReceipt: FfiConverterRustBuffer {
+    typealias SwiftType = MowyProofReceipt?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMowyProofReceipt.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMowyProofReceipt.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
 public func coreProfileVersion() -> UInt16  {
     return try!  FfiConverterUInt16.lift(try! rustCall() {
     uniffi_mowy_crypto_core_fn_func_core_profile_version($0
+    )
+})
+}
+public func runDevelopmentProof(protectedStore: NativeProtectedKeyStore, cancellation: MowyCancellation, now: UInt64, plaintextLength: UInt64) -> MowyProofResult  {
+    return try!  FfiConverterTypeMowyProofResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_run_development_proof(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterCallbackInterfaceMowyCancellation_lower(cancellation),
+        FfiConverterUInt64.lower(now),
+        FfiConverterUInt64.lower(plaintextLength),$0
     )
 })
 }
@@ -502,7 +1479,45 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mowy_crypto_core_checksum_func_core_profile_version() != 39217) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mowy_crypto_core_checksum_func_run_development_proof() != 62088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled() != 53474) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_protected_data_available() != 49026) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_key_state() != 59686) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_installation_marker_exists() != 21970) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_database_exists() != 11766) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_prepare_namespaces() != 62813) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_commit_companions() != 45077) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_store_new() != 58154) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_begin_load() != 12331) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_load_word() != 4939) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_finish_load() != 58172) {
+        return InitializationResult.apiChecksumMismatch
+    }
 
+    uniffiCallbackInitMowyCancellation()
+    uniffiCallbackInitNativeProtectedKeyStore()
     return InitializationResult.ok
 }()
 

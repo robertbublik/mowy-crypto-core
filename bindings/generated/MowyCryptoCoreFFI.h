@@ -243,10 +243,129 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureRes
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_MOWY_CANCELLATION_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_MOWY_CANCELLATION_METHOD0
+typedef void (*UniffiCallbackInterfaceMowyCancellationMethod0)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD0
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD1
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD2
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD3
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD3
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD4
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD4
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD5
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD5
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD6
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD6
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD7
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD7
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7)(uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD8
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD8
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8)(uint64_t, uint64_t, uint8_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD9
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE_METHOD9
+typedef void (*UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9)(uint64_t, uint64_t, RustBuffer* _Nonnull,
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_MOWY_CANCELLATION
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_MOWY_CANCELLATION
+typedef struct UniffiVTableCallbackInterfaceMowyCancellation {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceMowyCancellationMethod0 _Nonnull isCancelled;
+} UniffiVTableCallbackInterfaceMowyCancellation;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_NATIVE_PROTECTED_KEY_STORE
+typedef struct UniffiVTableCallbackInterfaceNativeProtectedKeyStore {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod0 _Nonnull protectedDataAvailable;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod1 _Nonnull keyState;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod2 _Nonnull installationMarkerExists;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod3 _Nonnull databaseExists;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod4 _Nonnull prepareNamespaces;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod5 _Nonnull commitCompanions;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod6 _Nonnull storeNew;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod7 _Nonnull beginLoad;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod8 _Nonnull loadWord;
+    UniffiCallbackInterfaceNativeProtectedKeyStoreMethod9 _Nonnull finishLoad;
+} UniffiVTableCallbackInterfaceNativeProtectedKeyStore;
+
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_INIT_CALLBACK_VTABLE_MOWYCANCELLATION
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_INIT_CALLBACK_VTABLE_MOWYCANCELLATION
+void uniffi_mowy_crypto_core_fn_init_callback_vtable_mowycancellation(const UniffiVTableCallbackInterfaceMowyCancellation* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_INIT_CALLBACK_VTABLE_NATIVEPROTECTEDKEYSTORE
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_INIT_CALLBACK_VTABLE_NATIVEPROTECTEDKEYSTORE
+void uniffi_mowy_crypto_core_fn_init_callback_vtable_nativeprotectedkeystore(const UniffiVTableCallbackInterfaceNativeProtectedKeyStore* _Nonnull vtable
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_FUNC_CORE_PROFILE_VERSION
 #define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_FUNC_CORE_PROFILE_VERSION
 uint16_t uniffi_mowy_crypto_core_fn_func_core_profile_version(RustCallStatus *_Nonnull out_status
 
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_FUNC_RUN_DEVELOPMENT_PROOF
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_FN_FUNC_RUN_DEVELOPMENT_PROOF
+RustBuffer uniffi_mowy_crypto_core_fn_func_run_development_proof(uint64_t protected_store, uint64_t cancellation, uint64_t now, uint64_t plaintext_length, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_MOWY_CRYPTO_CORE_RUSTBUFFER_ALLOC
@@ -512,6 +631,78 @@ void ffi_mowy_crypto_core_rust_future_complete_void(uint64_t handle, RustCallSta
 #ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_FUNC_CORE_PROFILE_VERSION
 #define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_FUNC_CORE_PROFILE_VERSION
 uint16_t uniffi_mowy_crypto_core_checksum_func_core_profile_version(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_FUNC_RUN_DEVELOPMENT_PROOF
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_FUNC_RUN_DEVELOPMENT_PROOF
+uint16_t uniffi_mowy_crypto_core_checksum_func_run_development_proof(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_MOWYCANCELLATION_IS_CANCELLED
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_MOWYCANCELLATION_IS_CANCELLED
+uint16_t uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_PROTECTED_DATA_AVAILABLE
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_PROTECTED_DATA_AVAILABLE
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_protected_data_available(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_KEY_STATE
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_KEY_STATE
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_key_state(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_INSTALLATION_MARKER_EXISTS
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_INSTALLATION_MARKER_EXISTS
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_installation_marker_exists(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_DATABASE_EXISTS
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_DATABASE_EXISTS
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_database_exists(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_PREPARE_NAMESPACES
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_PREPARE_NAMESPACES
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_prepare_namespaces(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_COMMIT_COMPANIONS
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_COMMIT_COMPANIONS
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_commit_companions(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_STORE_NEW
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_STORE_NEW
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_store_new(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_BEGIN_LOAD
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_BEGIN_LOAD
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_begin_load(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_LOAD_WORD
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_LOAD_WORD
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_load_word(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_FINISH_LOAD
+#define UNIFFI_FFIDEF_UNIFFI_MOWY_CRYPTO_CORE_CHECKSUM_METHOD_NATIVEPROTECTEDKEYSTORE_FINISH_LOAD
+uint16_t uniffi_mowy_crypto_core_checksum_method_nativeprotectedkeystore_finish_load(void
 
 );
 #endif

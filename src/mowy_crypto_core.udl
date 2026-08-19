@@ -1,3 +1,80 @@
 namespace mowy_crypto_core {
   u16 core_profile_version();
+
+  MowyProofResult run_development_proof(
+    NativeProtectedKeyStore protected_store,
+    MowyCancellation cancellation,
+    u64 now,
+    u64 plaintext_length
+  );
+};
+
+enum MowyCoreCode {
+  "Success",
+  "InvalidInput",
+  "Unavailable",
+  "Conflict",
+  "Storage",
+  "Authentication",
+  "Cryptography",
+  "Cancelled",
+};
+
+enum NativeProtectedKeyState {
+  "Absent",
+  "Present",
+  "Partial",
+};
+
+dictionary MowyProofReceipt {
+  string proof_id;
+  u64 plaintext_length;
+  u64 ciphertext_length;
+  string ciphertext_sha256;
+  string archive_sha256;
+};
+
+dictionary MowyProofResult {
+  MowyCoreCode code;
+  MowyProofReceipt? receipt;
+};
+
+dictionary NativeBridgeResponse {
+  MowyCoreCode code;
+  boolean flag;
+  u64 number;
+  NativeProtectedKeyState key_state;
+  string path;
+};
+
+callback interface NativeProtectedKeyStore {
+  NativeBridgeResponse protected_data_available();
+  NativeBridgeResponse key_state();
+  NativeBridgeResponse installation_marker_exists();
+  NativeBridgeResponse database_exists();
+  NativeBridgeResponse prepare_namespaces();
+  NativeBridgeResponse commit_companions();
+
+  NativeBridgeResponse store_new(
+    u64 word_0,
+    u64 word_1,
+    u64 word_2,
+    u64 word_3,
+    u64 word_4,
+    u64 word_5,
+    u64 word_6,
+    u64 word_7,
+    u64 word_8,
+    u64 word_9,
+    u64 word_10,
+    u64 word_11
+  );
+
+  NativeBridgeResponse begin_load();
+  NativeBridgeResponse load_word(u64 token, u8 index);
+  NativeBridgeResponse finish_load(u64 token);
+};
+
+callback interface MowyCancellation {
+  NativeBridgeResponse is_cancelled();
 };

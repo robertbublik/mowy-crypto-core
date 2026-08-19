@@ -1,7 +1,9 @@
 # Platform protected-key adapters
 
-Status: Implemented for P2 commit 2; native integration and physical lifecycle
-evidence continue in later package slices.
+Status: Protected storage is implemented; the semantic development bridge and
+signed proof apps are implemented on the package branch. Physical single-device
+lifecycle evidence passes on both named devices. The cross-device relay ABI and
+iOS mid-operation relock proof remain open.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -30,16 +32,35 @@ exactly version `1`, IV length `12`, the IV, and 96 ciphertext bytes plus the
 and moved atomically on the same volume, and the directory is synced. Rewrap
 uses the same key but a fresh provider IV and atomically replaces the blob.
 
-Both adapters return coarse states and errors only. Their raw byte methods are
-internal native plumbing for the later Rust connection; no UniFFI or Expo API
-currently exposes them. Callers must zeroize the one returned native buffer
-after Rust has copied it into its zeroizing container.
+Both adapters return coarse states and errors only. Generated UniFFI callbacks
+connect the 96-byte root item as twelve fixed-width words to avoid a general
+byte-buffer or key API. Swift/Kotlin holds one temporary protected-store buffer,
+uses a tokenized begin/word/finish load protocol, zeroizes that buffer at
+finish, and rejects concurrent loads. This callback is trusted native plumbing,
+not a JavaScript or Expo interface. The semantic caller can invoke only the
+named fixture proof and receives a coarse code or a public receipt.
+
+The platform adapters also create one fixed `proof-v1` namespace with
+`source`, `ciphertext`, `receive-temp`, `verified`, and `archive` children,
+an installation marker, and the operation database. iOS applies mode `0700` or
+`0600`, `NSFileProtectionComplete`, and backup exclusion. Android uses
+`noBackupFilesDir`, the same modes, and an application manifest with
+`allowBackup=false` and `fullBackupContent=false`. Rust validates canonical,
+non-linked directories and regular files again before use.
+
+`platform/android/proof-app` and `platform/ios/proof-app` are development-only
+native applications. Each runs one warmup maximum fixture, establishes a
+settled resident-memory baseline, then runs one to ten exact 25 MiB cycles. The
+apps write only public receipt data to an app-private temporary/cache file and
+do not log proof results. They enforce peak growth at most 100 MiB and final
+growth at most 20 MiB.
 
 Run `scripts/check-platform-key-storage.sh` with Xcode, Android SDK 36, and
 Gradle 8.14.3. It type-checks production Swift for an iOS device, executes the
 Keychain failure tests on the macOS host, and runs the Android wrapped-blob and
 AES-GCM tests plus Android lint fully offline. Gradle dependency verification
-is strict: the committed metadata freezes SHA-256 for all 312 resolved
-build/test components and 552 artifacts. The Android adapter adds no
-third-party runtime library. The physical-device lifecycle matrix is recorded
-separately from these deterministic host checks.
+is strict. The generated UniFFI Kotlin binding requires the separately pinned
+JNA 5.19.1 AAR; it is bridge plumbing and not another cryptographic provider.
+The complete physical commands, signing/linkage checks, memory results,
+container inventories, relaunches, and locked-device outcomes are recorded in
+`evidence/commit-7.md` and `evidence/commit-8.md`.
