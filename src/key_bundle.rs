@@ -82,7 +82,7 @@ impl KeyValidityWindow {
         })
     }
 
-    fn require_active_at(&self, now: u64) -> Result<(), KeyBundleError> {
+    pub(crate) fn require_active_at(&self, now: u64) -> Result<(), KeyBundleError> {
         if now < self.not_before {
             return Err(KeyBundleError::NotYetValid);
         }

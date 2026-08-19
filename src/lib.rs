@@ -11,6 +11,12 @@ mod key_material;
 #[expect(dead_code, reason = "platform integration is a later reviewed slice")]
 mod key_bundle;
 
+#[expect(dead_code, reason = "platform integration is a later reviewed slice")]
+mod attachment_manifest;
+
+#[allow(dead_code, reason = "platform integration is a later reviewed slice")]
+mod sealed_manifest;
+
 /// Identifies the pinned public-core profile without accepting hostile input.
 pub fn core_profile_version() -> u16 {
     1
