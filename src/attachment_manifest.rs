@@ -34,7 +34,7 @@ impl AttachmentKey {
         Ok(Self(key))
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, fuzzing))]
     pub(crate) fn from_fixture(bytes: [u8; ATTACHMENT_KEY_BYTES]) -> Self {
         Self(Zeroizing::new(bytes))
     }

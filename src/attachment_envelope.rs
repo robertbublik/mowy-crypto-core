@@ -402,6 +402,72 @@ where
     Ok(header)
 }
 
+/// Exercises envelope framing, canonical geometry, full-stream digest, and
+/// record authentication. A `hex:` prefix lets the committed text corpus carry
+/// exact binary vectors without an opaque binary fixture in source control.
+#[cfg(fuzzing)]
+pub(crate) fn fuzz_parser(input: &[u8]) {
+    let decoded = input.strip_prefix(b"hex:").and_then(decode_fuzz_hex);
+    let bytes = decoded.as_deref().unwrap_or(input);
+    if bytes.len() < HEADER_BYTES {
+        let _ = EnvelopeHeader::parse(bytes);
+        return;
+    }
+    let Ok(header) = EnvelopeHeader::parse(&bytes[..HEADER_BYTES]) else {
+        return;
+    };
+    let Ok(plaintext_length) = header.plaintext_length() else {
+        return;
+    };
+    let Ok(ciphertext_length) = u64::try_from(bytes.len()) else {
+        return;
+    };
+    let Ok(conversation_id) = CanonicalUuid::from_network_bytes([4; 16]) else {
+        return;
+    };
+    let Ok(asset_id) = CanonicalUuid::from_network_bytes([5; 16]) else {
+        return;
+    };
+    let Ok(manifest) = AttachmentManifest::new(
+        conversation_id,
+        asset_id,
+        plaintext_length,
+        ciphertext_length,
+        sha256::hash(bytes),
+        AttachmentKey::from_fixture([0xa0; ATTACHMENT_KEY_BYTES]),
+    ) else {
+        return;
+    };
+    let mut reader = std::io::Cursor::new(bytes);
+    let mut output = std::io::sink();
+    let mut cancellation = NeverCancelled;
+    let _ = decrypt_stream(&mut reader, &mut output, &manifest, &mut cancellation);
+}
+
+#[cfg(fuzzing)]
+fn decode_fuzz_hex(input: &[u8]) -> Option<Vec<u8>> {
+    if input.len() % 2 != 0 || input.len() > 2 * 1_048_576 {
+        return None;
+    }
+    let mut decoded = Vec::with_capacity(input.len() / 2);
+    for pair in input.chunks_exact(2) {
+        let high = fuzz_hex_nibble(pair[0])?;
+        let low = fuzz_hex_nibble(pair[1])?;
+        decoded.push((high << 4) | low);
+    }
+    Some(decoded)
+}
+
+#[cfg(fuzzing)]
+fn fuzz_hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
+}
+
 fn record_plaintext_length(
     plaintext_length: u64,
     count: u32,

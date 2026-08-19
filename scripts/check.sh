@@ -9,8 +9,11 @@ mowy_cargo_deny_bin=${MOWY_CARGO_DENY_BIN:-cargo-deny}
 
 cd "$mowy_repo_root"
 "$mowy_cargo_bin" fmt --all -- --check
+"$mowy_cargo_bin" fmt --all --manifest-path fuzz/Cargo.toml -- --check
 "$mowy_cargo_bin" clippy --locked --offline --all-targets --all-features -- -D warnings
 "$mowy_cargo_bin" test --locked --offline --all-targets
+RUSTFLAGS='--cfg fuzzing' "$mowy_cargo_bin" check \
+  --manifest-path fuzz/Cargo.toml --locked --offline --all-targets
 MOWY_CARGO_BIN="$mowy_mobile_cargo_bin" scripts/build-mobile.sh
 scripts/check-source.sh
 scripts/check-build-scripts.sh

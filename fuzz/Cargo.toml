@@ -1,0 +1,30 @@
+[package]
+name = "mowy-crypto-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+
+[dependencies.mowy-crypto-core-fuzz-support]
+path = "support"
+version = "=0.0.0"
+
+[[bin]]
+name = "sealed_manifest"
+path = "fuzz_targets/sealed_manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "attachment_envelope"
+path = "fuzz_targets/attachment_envelope.rs"
+test = false
+doc = false
+bench = false

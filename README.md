@@ -1,10 +1,10 @@
 # Mowy crypto core
 
-Status: P2 implementation active. Commits 1 through 6 are implemented on the
-package branch. The signed Android/iOS development proof, semantic UniFFI
-façade, parser fuzz harness, and physical evidence are prepared for commits 7
-and 8, but the required two-device relay surface remains open. This repository
-is not independently reviewed or production-ready.
+Status: P2 implementation active. Commits 1 through 8 are implemented on the
+package branch, including the signed Android/iOS development proof, semantic
+UniFFI façade, parser fuzz harness, and physical evidence. The required
+two-device relay surface remains open. This repository is not independently
+reviewed or production-ready.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed

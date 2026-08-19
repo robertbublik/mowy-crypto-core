@@ -345,6 +345,97 @@ fn map_key_bundle_error(error: KeyBundleError) -> SealedManifestError {
     }
 }
 
+/// Drives both the hostile outer length parser and the authenticated inner
+/// parser. Inputs beginning with `mutate:` apply deterministic byte mutations
+/// to the valid public-vector inner message, so the fuzzer can reach past the
+/// signature gate without production code accepting caller signatures.
+#[cfg(fuzzing)]
+pub(crate) fn fuzz_parser(input: &[u8]) {
+    let Ok(selector) = CanonicalUuid::from_network_bytes([6; 16]) else {
+        return;
+    };
+    let _ = SealedManifest::parse(selector, input);
+    let Some(mutations) = input.strip_prefix(b"mutate:") else {
+        return;
+    };
+    let identity_seed: [u8; KEY_BYTES] = std::array::from_fn(|index| index as u8);
+    let Ok(identity) = crypto_sign::KeyPair::from_seed(&identity_seed) else {
+        return;
+    };
+    let recipient_seed: [u8; KEY_BYTES] =
+        std::array::from_fn(|index| 0x20_u8.wrapping_add(index as u8));
+    let Ok(recipient) = crypto_box::KeyPair::from_seed(&recipient_seed) else {
+        return;
+    };
+    let Ok(conversation_id) = CanonicalUuid::from_network_bytes([4; 16]) else {
+        return;
+    };
+    let Ok(asset_id) = CanonicalUuid::from_network_bytes([5; 16]) else {
+        return;
+    };
+    let Ok(sender_device_id) = CanonicalUuid::from_network_bytes([2; 16]) else {
+        return;
+    };
+    let Ok(recipient_device_id) = CanonicalUuid::from_network_bytes([3; 16]) else {
+        return;
+    };
+    let Ok(ciphertext_length) = crate::attachment_manifest::canonical_ciphertext_length(65_537)
+    else {
+        return;
+    };
+    let Ok(manifest) = AttachmentManifest::new(
+        conversation_id,
+        asset_id,
+        65_537,
+        ciphertext_length,
+        [0x80; crate::attachment_manifest::DIGEST_BYTES],
+        crate::attachment_manifest::AttachmentKey::from_fixture([0xa0; KEY_BYTES]),
+    ) else {
+        return;
+    };
+    let Ok(mut inner) = build_signed_inner(
+        &identity,
+        sender_device_id,
+        recipient_device_id,
+        selector,
+        recipient.public_key.as_bytes(),
+        &manifest,
+    ) else {
+        return;
+    };
+    for mutation in mutations.chunks_exact(3) {
+        let offset = (usize::from(mutation[0]) << 8 | usize::from(mutation[1])) % INNER_BYTES;
+        inner[offset] ^= mutation[2];
+    }
+    let validity = match KeyValidityWindow::starting_at(1_770_000_000) {
+        Ok(validity) => validity,
+        Err(_) => return,
+    };
+    let Ok(local_key) = LocalAgreementKey::from_protected_secret(
+        Zeroizing::new(recipient_seed),
+        recipient_device_id,
+        selector,
+        validity,
+    ) else {
+        return;
+    };
+    let source_sealed = SealedManifest {
+        recipient_key_id: selector,
+        blob: [0; SEALED_BYTES],
+    };
+    let _ = validate_opened_inner(
+        &inner,
+        &local_key,
+        TrustedSender {
+            device_id: sender_device_id,
+            identity_public_key: *identity.public_key.as_bytes(),
+        },
+        conversation_id,
+        asset_id,
+        source_sealed,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use libsodium_rs::crypto_hash;
