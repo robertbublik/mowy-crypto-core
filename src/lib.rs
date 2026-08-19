@@ -1,8 +1,12 @@
-//! Narrow bootstrap surface for the public Mowy cryptographic core.
+//! Narrow public boundary for Mowy's fixture-only sealed-envelope foundation.
 //!
-//! Commit 1 intentionally exposes no key, plaintext, path, or cryptographic
-//! operation. Later reviewed slices add semantic operations behind this same
-//! generated boundary.
+//! Secret-bearing implementation modules stay behind the generated semantic
+//! façade. The current façade still exposes no key, plaintext, path, or
+//! cryptographic operation.
+
+// Commit 7 connects this reviewed native-only layer to the semantic façade.
+#[expect(dead_code, reason = "platform integration is a later reviewed slice")]
+mod key_material;
 
 /// Identifies the pinned public-core profile without accepting hostile input.
 pub fn core_profile_version() -> u16 {

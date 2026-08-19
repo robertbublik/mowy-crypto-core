@@ -1,6 +1,6 @@
 # Third-party notices
 
-Status: Implemented inventory for the P2 commit-1 dependency graph.
+Status: Implemented inventory through the P2 protected-key slice.
 
 The shipped/build package, version, source checksum, dependency, and SPDX
 licence inventory is `supply-chain/bom.cdx.json`. The complete corresponding
@@ -24,6 +24,23 @@ The transitive graph uses SPDX expressions drawn from 0BSD, Apache-2.0,
 Apache-2.0 WITH LLVM-exception, LGPL-2.1-or-later, MIT, MPL-2.0, Unicode-3.0,
 Unlicense, and Zlib. An expression containing alternatives does not require all
 alternatives; the exact expression for each component is retained in the SBOM.
+
+The commit-2 platform-adapter gate adds no runtime library to the mobile core.
+Its build/test tools are pinned separately and are not described as shipped
+Rust components:
+
+| Build or test tool | Version | Licence or notice |
+| --- | --- | --- |
+| Gradle | 8.14.3 | Apache-2.0; the installed distribution carries `LICENSE` and `NOTICE` |
+| Android Gradle Plugin | 8.11.0 | Apache-2.0 |
+| Kotlin Gradle plugin | 2.1.20 | Apache-2.0 |
+| JUnit | 4.13.2 | EPL-1.0; test only |
+| Hamcrest Core | 1.3 | BSD-3-Clause; transitive test only |
+
+`platform/android/gradle/verification-metadata.xml` freezes SHA-256 for the
+complete 312-component, 552-artifact Gradle build/test resolution. Xcode,
+Swift, the Apple SDK, Java, and Android SDK/NDK are platform toolchains rather
+than redistributed repository dependencies.
 
 No trademark licence, warranty, security assurance, or endorsement is implied.
 See each vendored package for its complete terms and notices.

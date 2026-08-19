@@ -1,7 +1,7 @@
 # Supply-chain evidence
 
-Status: Implemented for the P2 commit-1 build boundary; refreshed at every
-dependency change and reviewed again at package closeout.
+Status: Implemented for the P2 Rust boundary and protected-key platform build;
+refreshed at every dependency change and reviewed again at package closeout.
 
 `Cargo.lock` is the exact version/checksum inventory and `vendor/` is the only
 Cargo source. The repository configuration replaces crates.io with that tree
@@ -41,6 +41,14 @@ Development tools used for this boundary:
 - cargo-deny 0.20.2;
 - cargo-cyclonedx 0.5.9;
 - rsign 0.6.6.
+
+The platform-adapter gate additionally pins Gradle 8.14.3, Android Gradle
+Plugin 8.11.0, Kotlin 2.1.20, Android compile SDK 36, Java 17, and JUnit
+4.13.2. Strict Gradle dependency verification records SHA-256 for all 312
+resolved build/test components and 552 artifacts. The gate runs with
+`--offline`; adding or substituting any artifact fails until the metadata is
+reviewed and deliberately regenerated. These tools do not change the Rust
+runtime dependency graph or its CycloneDX SBOM.
 
 The committed SBOM has no component without a licence expression. The
 human-readable shipped-source notices are in `THIRD_PARTY_NOTICES.md`.
