@@ -303,6 +303,136 @@ final class MowyProofCancellation: MowyCancellation, @unchecked Sendable {
     }
 }
 
+enum MowyDevelopmentProofRunner {
+    static func publish(now: UInt64) -> MowyPublicBundleResult {
+        publishDevelopmentBundle(
+            protectedStore: MowyNativeProtectedKeyStore(),
+            now: now
+        )
+    }
+
+    static func prepare(
+        cancellation: MowyProofCancellation,
+        now: UInt64,
+        plaintextLength: UInt64,
+        recipientBundle: MowyPublicBundle
+    ) -> MowyPreparedTransferResult {
+        prepareDevelopmentTransfer(
+            protectedStore: MowyNativeProtectedKeyStore(),
+            cancellation: cancellation,
+            now: now,
+            plaintextLength: plaintextLength,
+            recipientBundle: recipientBundle
+        )
+    }
+
+    static func stage(
+        now: UInt64,
+        senderBundle: MowyPublicBundle,
+        transfer: MowyDevelopmentTransfer
+    ) -> MowyStagedTransferResult {
+        stageDevelopmentTransfer(
+            protectedStore: MowyNativeProtectedKeyStore(),
+            now: now,
+            senderBundle: senderBundle,
+            transfer: transfer
+        )
+    }
+
+    static func resume(
+        cancellation: MowyProofCancellation,
+        now: UInt64,
+        receiverOperationId: String
+    ) -> MowyProofResult {
+        resumeDevelopmentTransfer(
+            protectedStore: MowyNativeProtectedKeyStore(),
+            cancellation: cancellation,
+            now: now,
+            receiverOperationId: receiverOperationId
+        )
+    }
+
+    static func cleanupSender(
+        now: UInt64,
+        transfer: MowyDevelopmentTransfer
+    ) -> MowyCodeResult {
+        cleanupDevelopmentSender(
+            protectedStore: MowyNativeProtectedKeyStore(),
+            now: now,
+            transfer: transfer
+        )
+    }
+
+}
+
+enum MowyDevelopmentProofCodec {
+    static func encode(_ bundle: MowyPublicBundle) -> String {
+        [
+            bundle.accountId,
+            bundle.deviceId,
+            bundle.agreementKeyId,
+            bundle.identityPublicKey,
+            bundle.agreementPublicKey,
+            String(bundle.notBefore),
+            String(bundle.notAfter),
+            bundle.signature,
+        ].joined(separator: "|")
+    }
+
+    static func decodeBundle(_ value: String) -> MowyPublicBundle? {
+        let fields = value.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard fields.count == 8,
+              let notBefore = UInt64(fields[5]),
+              let notAfter = UInt64(fields[6]) else {
+            return nil
+        }
+        return MowyPublicBundle(
+            accountId: fields[0],
+            deviceId: fields[1],
+            agreementKeyId: fields[2],
+            identityPublicKey: fields[3],
+            agreementPublicKey: fields[4],
+            notBefore: notBefore,
+            notAfter: notAfter,
+            signature: fields[7]
+        )
+    }
+
+    static func encode(_ transfer: MowyDevelopmentTransfer) -> String {
+        [
+            transfer.senderOperationId,
+            transfer.receiverOperationId,
+            transfer.conversationId,
+            transfer.assetId,
+            transfer.recipientKeyId,
+            transfer.sealedManifest,
+            String(transfer.plaintextLength),
+            String(transfer.ciphertextLength),
+            transfer.ciphertextSha256,
+        ].joined(separator: "|")
+    }
+
+    static func decodeTransfer(_ value: String) -> MowyDevelopmentTransfer? {
+        let fields = value.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard fields.count == 9,
+              let plaintextLength = UInt64(fields[6]),
+              let ciphertextLength = UInt64(fields[7]) else {
+            return nil
+        }
+        return MowyDevelopmentTransfer(
+            senderOperationId: fields[0],
+            receiverOperationId: fields[1],
+            conversationId: fields[2],
+            assetId: fields[3],
+            recipientKeyId: fields[4],
+            sealedManifest: fields[5],
+            plaintextLength: plaintextLength,
+            ciphertextLength: ciphertextLength,
+            ciphertextSha256: fields[8]
+        )
+    }
+}
+
 private enum MowyProofPlatformError: Error {
     case invalidInput
     case unavailable

@@ -9,12 +9,23 @@ import android.os.Build
 import android.system.Os
 import android.system.OsConstants
 import app.mowy.crypto.core.MowyCancellation
+import app.mowy.crypto.core.MowyCodeResult
 import app.mowy.crypto.core.MowyCoreCode
+import app.mowy.crypto.core.MowyDevelopmentTransfer
+import app.mowy.crypto.core.MowyPreparedTransferResult
 import app.mowy.crypto.core.MowyProofResult
+import app.mowy.crypto.core.MowyPublicBundle
+import app.mowy.crypto.core.MowyPublicBundleResult
+import app.mowy.crypto.core.MowyStagedTransferResult
 import app.mowy.crypto.core.NativeBridgeResponse
 import app.mowy.crypto.core.NativeProtectedKeyState
 import app.mowy.crypto.core.NativeProtectedKeyStore
+import app.mowy.crypto.core.cleanupDevelopmentSender
+import app.mowy.crypto.core.prepareDevelopmentTransfer
+import app.mowy.crypto.core.publishDevelopmentBundle
+import app.mowy.crypto.core.resumeDevelopmentTransfer
 import app.mowy.crypto.core.runDevelopmentProof
+import app.mowy.crypto.core.stageDevelopmentTransfer
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
@@ -43,6 +54,120 @@ object MowyProofRunner {
         now,
         plaintextLength,
     )
+}
+
+object MowyDevelopmentProofRunner {
+    fun publish(context: Context, now: ULong): MowyPublicBundleResult =
+        publishDevelopmentBundle(MowyNativeProtectedKeyStore(context.applicationContext), now)
+
+    fun prepare(
+        context: Context,
+        cancellation: MowyProofCancellation,
+        now: ULong,
+        plaintextLength: ULong,
+        recipientBundle: MowyPublicBundle,
+    ): MowyPreparedTransferResult = prepareDevelopmentTransfer(
+        MowyNativeProtectedKeyStore(context.applicationContext),
+        cancellation,
+        now,
+        plaintextLength,
+        recipientBundle,
+    )
+
+    fun stage(
+        context: Context,
+        now: ULong,
+        senderBundle: MowyPublicBundle,
+        transfer: MowyDevelopmentTransfer,
+    ): MowyStagedTransferResult = stageDevelopmentTransfer(
+        MowyNativeProtectedKeyStore(context.applicationContext),
+        now,
+        senderBundle,
+        transfer,
+    )
+
+    fun resume(
+        context: Context,
+        cancellation: MowyProofCancellation,
+        now: ULong,
+        receiverOperationId: String,
+    ): MowyProofResult = resumeDevelopmentTransfer(
+        MowyNativeProtectedKeyStore(context.applicationContext),
+        cancellation,
+        now,
+        receiverOperationId,
+    )
+
+    fun cleanupSender(
+        context: Context,
+        now: ULong,
+        transfer: MowyDevelopmentTransfer,
+    ): MowyCodeResult = cleanupDevelopmentSender(
+        MowyNativeProtectedKeyStore(context.applicationContext),
+        now,
+        transfer,
+    )
+
+}
+
+object MowyDevelopmentProofCodec {
+    fun encode(bundle: MowyPublicBundle): String = listOf(
+        bundle.accountId,
+        bundle.deviceId,
+        bundle.agreementKeyId,
+        bundle.identityPublicKey,
+        bundle.agreementPublicKey,
+        bundle.notBefore.toString(),
+        bundle.notAfter.toString(),
+        bundle.signature,
+    ).joinToString("|")
+
+    fun decodeBundle(value: String): MowyPublicBundle? {
+        val fields = value.split('|')
+        if (fields.size != 8) return null
+        val notBefore = fields[5].toULongOrNull() ?: return null
+        val notAfter = fields[6].toULongOrNull() ?: return null
+        return MowyPublicBundle(
+            fields[0],
+            fields[1],
+            fields[2],
+            fields[3],
+            fields[4],
+            notBefore,
+            notAfter,
+            fields[7],
+        )
+    }
+
+    fun encode(transfer: MowyDevelopmentTransfer): String = listOf(
+        transfer.senderOperationId,
+        transfer.receiverOperationId,
+        transfer.conversationId,
+        transfer.assetId,
+        transfer.recipientKeyId,
+        transfer.sealedManifest,
+        transfer.plaintextLength.toString(),
+        transfer.ciphertextLength.toString(),
+        transfer.ciphertextSha256,
+    ).joinToString("|")
+
+    fun decodeTransfer(value: String): MowyDevelopmentTransfer? {
+        val fields = value.split('|')
+        if (fields.size != 9) return null
+        val plaintextLength = fields[6].toULongOrNull() ?: return null
+        val ciphertextLength = fields[7].toULongOrNull() ?: return null
+        return MowyDevelopmentTransfer(
+            fields[0],
+            fields[1],
+            fields[2],
+            fields[3],
+            fields[4],
+            fields[5],
+            plaintextLength,
+            ciphertextLength,
+            fields[8],
+        )
+    }
 }
 
 @SuppressLint("NewApi") // The semantic entry returns unavailable before API-28 state is touched.

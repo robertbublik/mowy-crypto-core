@@ -541,6 +541,196 @@ fileprivate struct FfiConverterString: FfiConverter {
 }
 
 
+public struct MowyCodeResult: Equatable, Hashable {
+    public var code: MowyCoreCode
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode) {
+        self.code = code
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyCodeResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyCodeResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyCodeResult {
+        return
+            try MowyCodeResult(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyCodeResult, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyCodeResult_lift(_ buf: RustBuffer) throws -> MowyCodeResult {
+    return try FfiConverterTypeMowyCodeResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyCodeResult_lower(_ value: MowyCodeResult) -> RustBuffer {
+    return FfiConverterTypeMowyCodeResult.lower(value)
+}
+
+
+public struct MowyDevelopmentTransfer: Equatable, Hashable {
+    public var senderOperationId: String
+    public var receiverOperationId: String
+    public var conversationId: String
+    public var assetId: String
+    public var recipientKeyId: String
+    public var sealedManifest: String
+    public var plaintextLength: UInt64
+    public var ciphertextLength: UInt64
+    public var ciphertextSha256: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(senderOperationId: String, receiverOperationId: String, conversationId: String, assetId: String, recipientKeyId: String, sealedManifest: String, plaintextLength: UInt64, ciphertextLength: UInt64, ciphertextSha256: String) {
+        self.senderOperationId = senderOperationId
+        self.receiverOperationId = receiverOperationId
+        self.conversationId = conversationId
+        self.assetId = assetId
+        self.recipientKeyId = recipientKeyId
+        self.sealedManifest = sealedManifest
+        self.plaintextLength = plaintextLength
+        self.ciphertextLength = ciphertextLength
+        self.ciphertextSha256 = ciphertextSha256
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyDevelopmentTransfer: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyDevelopmentTransfer: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyDevelopmentTransfer {
+        return
+            try MowyDevelopmentTransfer(
+                senderOperationId: FfiConverterString.read(from: &buf),
+                receiverOperationId: FfiConverterString.read(from: &buf),
+                conversationId: FfiConverterString.read(from: &buf),
+                assetId: FfiConverterString.read(from: &buf),
+                recipientKeyId: FfiConverterString.read(from: &buf),
+                sealedManifest: FfiConverterString.read(from: &buf),
+                plaintextLength: FfiConverterUInt64.read(from: &buf),
+                ciphertextLength: FfiConverterUInt64.read(from: &buf),
+                ciphertextSha256: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyDevelopmentTransfer, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.senderOperationId, into: &buf)
+        FfiConverterString.write(value.receiverOperationId, into: &buf)
+        FfiConverterString.write(value.conversationId, into: &buf)
+        FfiConverterString.write(value.assetId, into: &buf)
+        FfiConverterString.write(value.recipientKeyId, into: &buf)
+        FfiConverterString.write(value.sealedManifest, into: &buf)
+        FfiConverterUInt64.write(value.plaintextLength, into: &buf)
+        FfiConverterUInt64.write(value.ciphertextLength, into: &buf)
+        FfiConverterString.write(value.ciphertextSha256, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyDevelopmentTransfer_lift(_ buf: RustBuffer) throws -> MowyDevelopmentTransfer {
+    return try FfiConverterTypeMowyDevelopmentTransfer.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyDevelopmentTransfer_lower(_ value: MowyDevelopmentTransfer) -> RustBuffer {
+    return FfiConverterTypeMowyDevelopmentTransfer.lower(value)
+}
+
+
+public struct MowyPreparedTransferResult: Equatable, Hashable {
+    public var code: MowyCoreCode
+    public var transfer: MowyDevelopmentTransfer?
+    public var ciphertextSourcePath: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode, transfer: MowyDevelopmentTransfer?, ciphertextSourcePath: String) {
+        self.code = code
+        self.transfer = transfer
+        self.ciphertextSourcePath = ciphertextSourcePath
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyPreparedTransferResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyPreparedTransferResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyPreparedTransferResult {
+        return
+            try MowyPreparedTransferResult(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf),
+                transfer: FfiConverterOptionTypeMowyDevelopmentTransfer.read(from: &buf),
+                ciphertextSourcePath: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyPreparedTransferResult, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+        FfiConverterOptionTypeMowyDevelopmentTransfer.write(value.transfer, into: &buf)
+        FfiConverterString.write(value.ciphertextSourcePath, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPreparedTransferResult_lift(_ buf: RustBuffer) throws -> MowyPreparedTransferResult {
+    return try FfiConverterTypeMowyPreparedTransferResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPreparedTransferResult_lower(_ value: MowyPreparedTransferResult) -> RustBuffer {
+    return FfiConverterTypeMowyPreparedTransferResult.lower(value)
+}
+
+
 public struct MowyProofReceipt: Equatable, Hashable {
     public var proofId: String
     public var plaintextLength: UInt64
@@ -658,6 +848,192 @@ public func FfiConverterTypeMowyProofResult_lift(_ buf: RustBuffer) throws -> Mo
 #endif
 public func FfiConverterTypeMowyProofResult_lower(_ value: MowyProofResult) -> RustBuffer {
     return FfiConverterTypeMowyProofResult.lower(value)
+}
+
+
+public struct MowyPublicBundle: Equatable, Hashable {
+    public var accountId: String
+    public var deviceId: String
+    public var agreementKeyId: String
+    public var identityPublicKey: String
+    public var agreementPublicKey: String
+    public var notBefore: UInt64
+    public var notAfter: UInt64
+    public var signature: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(accountId: String, deviceId: String, agreementKeyId: String, identityPublicKey: String, agreementPublicKey: String, notBefore: UInt64, notAfter: UInt64, signature: String) {
+        self.accountId = accountId
+        self.deviceId = deviceId
+        self.agreementKeyId = agreementKeyId
+        self.identityPublicKey = identityPublicKey
+        self.agreementPublicKey = agreementPublicKey
+        self.notBefore = notBefore
+        self.notAfter = notAfter
+        self.signature = signature
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyPublicBundle: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyPublicBundle: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyPublicBundle {
+        return
+            try MowyPublicBundle(
+                accountId: FfiConverterString.read(from: &buf),
+                deviceId: FfiConverterString.read(from: &buf),
+                agreementKeyId: FfiConverterString.read(from: &buf),
+                identityPublicKey: FfiConverterString.read(from: &buf),
+                agreementPublicKey: FfiConverterString.read(from: &buf),
+                notBefore: FfiConverterUInt64.read(from: &buf),
+                notAfter: FfiConverterUInt64.read(from: &buf),
+                signature: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyPublicBundle, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.accountId, into: &buf)
+        FfiConverterString.write(value.deviceId, into: &buf)
+        FfiConverterString.write(value.agreementKeyId, into: &buf)
+        FfiConverterString.write(value.identityPublicKey, into: &buf)
+        FfiConverterString.write(value.agreementPublicKey, into: &buf)
+        FfiConverterUInt64.write(value.notBefore, into: &buf)
+        FfiConverterUInt64.write(value.notAfter, into: &buf)
+        FfiConverterString.write(value.signature, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPublicBundle_lift(_ buf: RustBuffer) throws -> MowyPublicBundle {
+    return try FfiConverterTypeMowyPublicBundle.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPublicBundle_lower(_ value: MowyPublicBundle) -> RustBuffer {
+    return FfiConverterTypeMowyPublicBundle.lower(value)
+}
+
+
+public struct MowyPublicBundleResult: Equatable, Hashable {
+    public var code: MowyCoreCode
+    public var bundle: MowyPublicBundle?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode, bundle: MowyPublicBundle?) {
+        self.code = code
+        self.bundle = bundle
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyPublicBundleResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyPublicBundleResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyPublicBundleResult {
+        return
+            try MowyPublicBundleResult(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf),
+                bundle: FfiConverterOptionTypeMowyPublicBundle.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyPublicBundleResult, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+        FfiConverterOptionTypeMowyPublicBundle.write(value.bundle, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPublicBundleResult_lift(_ buf: RustBuffer) throws -> MowyPublicBundleResult {
+    return try FfiConverterTypeMowyPublicBundleResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyPublicBundleResult_lower(_ value: MowyPublicBundleResult) -> RustBuffer {
+    return FfiConverterTypeMowyPublicBundleResult.lower(value)
+}
+
+
+public struct MowyStagedTransferResult: Equatable, Hashable {
+    public var code: MowyCoreCode
+    public var ciphertextDestinationPath: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(code: MowyCoreCode, ciphertextDestinationPath: String) {
+        self.code = code
+        self.ciphertextDestinationPath = ciphertextDestinationPath
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MowyStagedTransferResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMowyStagedTransferResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MowyStagedTransferResult {
+        return
+            try MowyStagedTransferResult(
+                code: FfiConverterTypeMowyCoreCode.read(from: &buf),
+                ciphertextDestinationPath: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MowyStagedTransferResult, into buf: inout [UInt8]) {
+        FfiConverterTypeMowyCoreCode.write(value.code, into: &buf)
+        FfiConverterString.write(value.ciphertextDestinationPath, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyStagedTransferResult_lift(_ buf: RustBuffer) throws -> MowyStagedTransferResult {
+    return try FfiConverterTypeMowyStagedTransferResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMowyStagedTransferResult_lower(_ value: MowyStagedTransferResult) -> RustBuffer {
+    return FfiConverterTypeMowyStagedTransferResult.lower(value)
 }
 
 
@@ -1424,6 +1800,30 @@ public func FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(_ v: Nati
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeMowyDevelopmentTransfer: FfiConverterRustBuffer {
+    typealias SwiftType = MowyDevelopmentTransfer?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMowyDevelopmentTransfer.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMowyDevelopmentTransfer.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeMowyProofReceipt: FfiConverterRustBuffer {
     typealias SwiftType = MowyProofReceipt?
 
@@ -1444,9 +1844,71 @@ fileprivate struct FfiConverterOptionTypeMowyProofReceipt: FfiConverterRustBuffe
         }
     }
 }
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMowyPublicBundle: FfiConverterRustBuffer {
+    typealias SwiftType = MowyPublicBundle?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMowyPublicBundle.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMowyPublicBundle.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+public func cleanupDevelopmentSender(protectedStore: NativeProtectedKeyStore, now: UInt64, transfer: MowyDevelopmentTransfer) -> MowyCodeResult  {
+    return try!  FfiConverterTypeMowyCodeResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_cleanup_development_sender(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterUInt64.lower(now),
+        FfiConverterTypeMowyDevelopmentTransfer_lower(transfer),$0
+    )
+})
+}
 public func coreProfileVersion() -> UInt16  {
     return try!  FfiConverterUInt16.lift(try! rustCall() {
     uniffi_mowy_crypto_core_fn_func_core_profile_version($0
+    )
+})
+}
+public func prepareDevelopmentTransfer(protectedStore: NativeProtectedKeyStore, cancellation: MowyCancellation, now: UInt64, plaintextLength: UInt64, recipientBundle: MowyPublicBundle) -> MowyPreparedTransferResult  {
+    return try!  FfiConverterTypeMowyPreparedTransferResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_prepare_development_transfer(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterCallbackInterfaceMowyCancellation_lower(cancellation),
+        FfiConverterUInt64.lower(now),
+        FfiConverterUInt64.lower(plaintextLength),
+        FfiConverterTypeMowyPublicBundle_lower(recipientBundle),$0
+    )
+})
+}
+public func publishDevelopmentBundle(protectedStore: NativeProtectedKeyStore, now: UInt64) -> MowyPublicBundleResult  {
+    return try!  FfiConverterTypeMowyPublicBundleResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_publish_development_bundle(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterUInt64.lower(now),$0
+    )
+})
+}
+public func resumeDevelopmentTransfer(protectedStore: NativeProtectedKeyStore, cancellation: MowyCancellation, now: UInt64, receiverOperationId: String) -> MowyProofResult  {
+    return try!  FfiConverterTypeMowyProofResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_resume_development_transfer(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterCallbackInterfaceMowyCancellation_lower(cancellation),
+        FfiConverterUInt64.lower(now),
+        FfiConverterString.lower(receiverOperationId),$0
     )
 })
 }
@@ -1457,6 +1919,16 @@ public func runDevelopmentProof(protectedStore: NativeProtectedKeyStore, cancell
         FfiConverterCallbackInterfaceMowyCancellation_lower(cancellation),
         FfiConverterUInt64.lower(now),
         FfiConverterUInt64.lower(plaintextLength),$0
+    )
+})
+}
+public func stageDevelopmentTransfer(protectedStore: NativeProtectedKeyStore, now: UInt64, senderBundle: MowyPublicBundle, transfer: MowyDevelopmentTransfer) -> MowyStagedTransferResult  {
+    return try!  FfiConverterTypeMowyStagedTransferResult_lift(try! rustCall() {
+    uniffi_mowy_crypto_core_fn_func_stage_development_transfer(
+        FfiConverterCallbackInterfaceNativeProtectedKeyStore_lower(protectedStore),
+        FfiConverterUInt64.lower(now),
+        FfiConverterTypeMowyPublicBundle_lower(senderBundle),
+        FfiConverterTypeMowyDevelopmentTransfer_lower(transfer),$0
     )
 })
 }
@@ -1476,10 +1948,25 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_mowy_crypto_core_checksum_func_cleanup_development_sender() != 22197) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mowy_crypto_core_checksum_func_core_profile_version() != 39217) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mowy_crypto_core_checksum_func_prepare_development_transfer() != 7253) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_func_publish_development_bundle() != 10256) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_func_resume_development_transfer() != 10760) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mowy_crypto_core_checksum_func_run_development_proof() != 62088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mowy_crypto_core_checksum_func_stage_development_transfer() != 64872) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mowy_crypto_core_checksum_method_mowycancellation_is_cancelled() != 53474) {

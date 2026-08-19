@@ -1,9 +1,9 @@
 # Platform protected-key adapters
 
-Status: Protected storage is implemented; the semantic development bridge and
-signed proof apps are implemented on the package branch. Physical single-device
-lifecycle evidence passes on both named devices. The cross-device relay ABI and
-iOS mid-operation relock proof remain open.
+Status: Protected storage and the bounded semantic development bridge are
+implemented. Physical single-device lifecycle evidence passes on both named
+devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup journey
+passes. Physical iOS mid-operation relock remains open.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -37,8 +37,26 @@ connect the 96-byte root item as twelve fixed-width words to avoid a general
 byte-buffer or key API. Swift/Kotlin holds one temporary protected-store buffer,
 uses a tokenized begin/word/finish load protocol, zeroizes that buffer at
 finish, and rejects concurrent loads. This callback is trusted native plumbing,
-not a JavaScript or Expo interface. The semantic caller can invoke only the
-named fixture proof and receives a coarse code or a public receipt.
+not a JavaScript or Expo interface. The semantic caller can invoke the named
+self-contained fixture proof or the fixed cross-device fixture lifecycle and
+receives only a coarse code plus public/opaque records.
+
+The development proof apps accept these modes:
+
+| Mode | Public input | Result after durable transition |
+| --- | --- | --- |
+| `publish` | none | signed public bundle |
+| `prepare` | recipient public bundle and bounded fixture length | opaque/public transfer plus exact sender ciphertext path |
+| `stage` | sender public bundle and opaque/public transfer | opaque receiver operation ID plus exact destination path; sealed bytes remain unopened |
+| `resume` | opaque receiver operation ID | public length/digest receipt after authenticate, decrypt, archive, verify, and transport erasure |
+| `cleanup-sender` | exact opaque/public transfer | coarse success after exact generated sender files and durable row are removed |
+
+iOS supplies `--mode`, `--bundle`, `--transfer`, `--operation`, and `--length`
+arguments. Android uses intent extras with the same names. The apps serialize
+public fields with `|` only as proof-runner plumbing; UniFFI records are the ABI,
+and this text is not a product or service wire format. The returned paths are
+generated within the fixed app-private namespace and are never accepted back
+as receiver input.
 
 The platform adapters also create one fixed `proof-v1` namespace with
 `source`, `ciphertext`, `receive-temp`, `verified`, and `archive` children,
@@ -62,5 +80,6 @@ AES-GCM tests plus Android lint fully offline. Gradle dependency verification
 is strict. The generated UniFFI Kotlin binding requires the separately pinned
 JNA 5.19.1 AAR; it is bridge plumbing and not another cryptographic provider.
 The complete physical commands, signing/linkage checks, memory results,
-container inventories, relaunches, and locked-device outcomes are recorded in
-`evidence/commit-7.md` and `evidence/commit-8.md`.
+container inventories, relaunches, locked-device outcomes, and cross-device
+relay are recorded in `evidence/commit-7.md`, `evidence/commit-8.md`, and
+`evidence/commit-9.md`.

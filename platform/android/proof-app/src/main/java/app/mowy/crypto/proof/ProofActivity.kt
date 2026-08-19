@@ -7,6 +7,8 @@ import android.os.Debug
 import android.system.Os
 import android.widget.TextView
 import app.mowy.crypto.core.MowyCoreCode
+import app.mowy.crypto.core.keys.MowyDevelopmentProofCodec
+import app.mowy.crypto.core.keys.MowyDevelopmentProofRunner
 import app.mowy.crypto.core.keys.MowyProofCancellation
 import app.mowy.crypto.core.keys.MowyProofRunner
 import java.io.File
@@ -22,6 +24,14 @@ class ProofActivity : Activity() {
             setPadding(32, 64, 32, 32)
         }
         setContentView(resultView)
+
+        val mode = intent.getStringExtra(MODE_EXTRA)
+        if (mode != null) {
+            Thread {
+                publishResult(resultView, runDevelopmentCommand(mode))
+            }.start()
+            return
+        }
 
         val cycles = requestedCycles()
         if (cycles == null) {
@@ -108,6 +118,105 @@ class ProofActivity : Activity() {
         return intent.getIntExtra(CYCLES_EXTRA, 0).takeIf { it in 1..MAXIMUM_CYCLES }
     }
 
+    private fun runDevelopmentCommand(mode: String): String {
+        val now = (System.currentTimeMillis() / 1_000L).toULong()
+        return when (mode) {
+            "publish" -> {
+                val result = MowyDevelopmentProofRunner.publish(this, now)
+                val bundle = result.bundle
+                if (result.code != MowyCoreCode.SUCCESS || bundle == null) {
+                    "Mowy P2 development: ${result.code.name}"
+                } else {
+                    listOf(
+                        "Mowy P2 development: SUCCESS",
+                        "mode=publish",
+                        "bundle=${MowyDevelopmentProofCodec.encode(bundle)}",
+                    ).joinToString("\n")
+                }
+            }
+            "prepare" -> {
+                val bundle = intent.getStringExtra(BUNDLE_EXTRA)
+                    ?.let(MowyDevelopmentProofCodec::decodeBundle)
+                val length = intent.getStringExtra(LENGTH_EXTRA)?.toULongOrNull()
+                if (bundle == null || length == null) {
+                    "Mowy P2 development: INVALID_INPUT"
+                } else {
+                    val result = MowyDevelopmentProofRunner.prepare(
+                        this,
+                        cancellation,
+                        now,
+                        length,
+                        bundle,
+                    )
+                    val transfer = result.transfer
+                    if (result.code != MowyCoreCode.SUCCESS || transfer == null) {
+                        "Mowy P2 development: ${result.code.name}"
+                    } else {
+                        listOf(
+                            "Mowy P2 development: SUCCESS",
+                            "mode=prepare",
+                            "transfer=${MowyDevelopmentProofCodec.encode(transfer)}",
+                            "ciphertext_source_path=${result.ciphertextSourcePath}",
+                        ).joinToString("\n")
+                    }
+                }
+            }
+            "stage" -> {
+                val bundle = intent.getStringExtra(BUNDLE_EXTRA)
+                    ?.let(MowyDevelopmentProofCodec::decodeBundle)
+                val transfer = intent.getStringExtra(TRANSFER_EXTRA)
+                    ?.let(MowyDevelopmentProofCodec::decodeTransfer)
+                if (bundle == null || transfer == null) {
+                    "Mowy P2 development: INVALID_INPUT"
+                } else {
+                    val result = MowyDevelopmentProofRunner.stage(this, now, bundle, transfer)
+                    if (result.code != MowyCoreCode.SUCCESS) {
+                        "Mowy P2 development: ${result.code.name}"
+                    } else {
+                        listOf(
+                            "Mowy P2 development: SUCCESS",
+                            "mode=stage",
+                            "receiver_operation_id=${transfer.receiverOperationId}",
+                            "ciphertext_destination_path=${result.ciphertextDestinationPath}",
+                        ).joinToString("\n")
+                    }
+                }
+            }
+            "resume" -> {
+                val operationId = intent.getStringExtra(OPERATION_EXTRA)
+                    ?: return "Mowy P2 development: INVALID_INPUT"
+                val result = MowyDevelopmentProofRunner.resume(
+                    this,
+                    cancellation,
+                    now,
+                    operationId,
+                )
+                val receipt = result.receipt
+                if (result.code != MowyCoreCode.SUCCESS || receipt == null) {
+                    "Mowy P2 development: ${result.code.name}"
+                } else {
+                    listOf(
+                        "Mowy P2 development: SUCCESS",
+                        "mode=resume",
+                        "proof_id=${receipt.proofId}",
+                        "plaintext_length=${receipt.plaintextLength}",
+                        "ciphertext_length=${receipt.ciphertextLength}",
+                        "ciphertext_sha256=${receipt.ciphertextSha256}",
+                        "archive_sha256=${receipt.archiveSha256}",
+                    ).joinToString("\n")
+                }
+            }
+            "cleanup-sender" -> {
+                val transfer = intent.getStringExtra(TRANSFER_EXTRA)
+                    ?.let(MowyDevelopmentProofCodec::decodeTransfer)
+                    ?: return "Mowy P2 development: INVALID_INPUT"
+                val result = MowyDevelopmentProofRunner.cleanupSender(this, now, transfer)
+                "Mowy P2 development: ${result.code.name}\nmode=$mode"
+            }
+            else -> "Mowy P2 development: INVALID_INPUT"
+        }
+    }
+
     private fun publishResult(resultView: TextView, text: String) {
         val resultFile = File(cacheDir, RESULT_FILE)
         resultFile.writeText(text, Charsets.UTF_8)
@@ -136,6 +245,11 @@ class ProofActivity : Activity() {
         const val MAXIMUM_FIXTURE_BYTES = 26_214_400UL
         const val MAXIMUM_CYCLES = 10
         const val CYCLES_EXTRA = "cycles"
+        const val MODE_EXTRA = "mode"
+        const val BUNDLE_EXTRA = "bundle"
+        const val TRANSFER_EXTRA = "transfer"
+        const val OPERATION_EXTRA = "operation"
+        const val LENGTH_EXTRA = "length"
         const val RESULT_FILE = "mowy-p2-proof-result.txt"
         const val FILE_MODE = 0b110000000
         const val KIBIBYTE = 1_024L

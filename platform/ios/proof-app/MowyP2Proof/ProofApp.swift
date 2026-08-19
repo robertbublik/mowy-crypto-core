@@ -43,6 +43,12 @@ final class ProofViewController: UIViewController {
         super.viewDidAppear(animated)
         guard !started else { return }
         started = true
+        if let mode = argument("--mode") {
+            DispatchQueue.global(qos: .userInitiated).async { [cancellation] in
+                self.publish(self.runDevelopmentCommand(mode: mode, cancellation: cancellation))
+            }
+            return
+        }
         guard let cycles = requestedCycles() else {
             publish("Mowy P2 proof: INVALID_INPUT")
             return
@@ -129,6 +135,112 @@ final class ProofViewController: UIViewController {
             return nil
         }
         return value
+    }
+
+    private func runDevelopmentCommand(
+        mode: String,
+        cancellation: MowyProofCancellation
+    ) -> String {
+        let now = UInt64(Date().timeIntervalSince1970)
+        switch mode {
+        case "publish":
+            let result = MowyDevelopmentProofRunner.publish(now: now)
+            guard result.code == .success, let bundle = result.bundle else {
+                return "Mowy P2 development: \(codeName(result.code))"
+            }
+            return [
+                "Mowy P2 development: SUCCESS",
+                "mode=publish",
+                "bundle=\(MowyDevelopmentProofCodec.encode(bundle))",
+            ].joined(separator: "\n")
+        case "prepare":
+            guard let encoded = argument("--bundle"),
+                  let bundle = MowyDevelopmentProofCodec.decodeBundle(encoded),
+                  let lengthText = argument("--length"),
+                  let length = UInt64(lengthText) else {
+                return "Mowy P2 development: INVALID_INPUT"
+            }
+            let result = MowyDevelopmentProofRunner.prepare(
+                cancellation: cancellation,
+                now: now,
+                plaintextLength: length,
+                recipientBundle: bundle
+            )
+            guard result.code == .success, let transfer = result.transfer else {
+                return "Mowy P2 development: \(codeName(result.code))"
+            }
+            return [
+                "Mowy P2 development: SUCCESS",
+                "mode=prepare",
+                "transfer=\(MowyDevelopmentProofCodec.encode(transfer))",
+                "ciphertext_source_path=\(result.ciphertextSourcePath)",
+            ].joined(separator: "\n")
+        case "stage":
+            guard let encodedBundle = argument("--bundle"),
+                  let bundle = MowyDevelopmentProofCodec.decodeBundle(encodedBundle),
+                  let encodedTransfer = argument("--transfer"),
+                  let transfer = MowyDevelopmentProofCodec.decodeTransfer(encodedTransfer) else {
+                return "Mowy P2 development: INVALID_INPUT"
+            }
+            let result = MowyDevelopmentProofRunner.stage(
+                now: now,
+                senderBundle: bundle,
+                transfer: transfer
+            )
+            guard result.code == .success else {
+                return "Mowy P2 development: \(codeName(result.code))"
+            }
+            return [
+                "Mowy P2 development: SUCCESS",
+                "mode=stage",
+                "receiver_operation_id=\(transfer.receiverOperationId)",
+                "ciphertext_destination_path=\(result.ciphertextDestinationPath)",
+            ].joined(separator: "\n")
+        case "resume":
+            guard let operationId = argument("--operation") else {
+                return "Mowy P2 development: INVALID_INPUT"
+            }
+            let result = MowyDevelopmentProofRunner.resume(
+                cancellation: cancellation,
+                now: now,
+                receiverOperationId: operationId
+            )
+            guard result.code == .success, let receipt = result.receipt else {
+                return "Mowy P2 development: \(codeName(result.code))"
+            }
+            return [
+                "Mowy P2 development: SUCCESS",
+                "mode=resume",
+                "proof_id=\(receipt.proofId)",
+                "plaintext_length=\(receipt.plaintextLength)",
+                "ciphertext_length=\(receipt.ciphertextLength)",
+                "ciphertext_sha256=\(receipt.ciphertextSha256)",
+                "archive_sha256=\(receipt.archiveSha256)",
+            ].joined(separator: "\n")
+        case "cleanup-sender":
+            guard let encodedTransfer = argument("--transfer"),
+                  let transfer = MowyDevelopmentProofCodec.decodeTransfer(encodedTransfer) else {
+                return "Mowy P2 development: INVALID_INPUT"
+            }
+            let result = MowyDevelopmentProofRunner.cleanupSender(now: now, transfer: transfer)
+            return [
+                "Mowy P2 development: \(codeName(result.code))",
+                "mode=\(mode)",
+            ].joined(separator: "\n")
+        default:
+            return "Mowy P2 development: INVALID_INPUT"
+        }
+    }
+
+    private func argument(_ name: String) -> String? {
+        let arguments = CommandLine.arguments
+        guard let index = arguments.firstIndex(of: name) else { return nil }
+        let valueIndex = arguments.index(after: index)
+        return valueIndex < arguments.endIndex ? arguments[valueIndex] : nil
+    }
+
+    private func codeName(_ code: MowyCoreCode) -> String {
+        String(describing: code).uppercased()
     }
 
     private func publish(_ text: String) {
