@@ -5,6 +5,7 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use crate::archive::{ArchiveError, ArchiveKey, VerifiedArchive, create_and_verify_archive};
 use crate::attachment_envelope::{
     AttachmentEnvelopeError, CancellationCheck, EncryptedAttachment, EnvelopeHeader,
     decrypt_stream, encrypt_stream,
@@ -17,6 +18,8 @@ static FILE_OPERATION_LOCK: Mutex<()> = Mutex::new(());
 const SOURCE_DIRECTORY: &str = "source";
 const CIPHERTEXT_DIRECTORY: &str = "ciphertext";
 const RECEIVE_TEMP_DIRECTORY: &str = "receive-temp";
+const VERIFIED_DIRECTORY: &str = "verified";
+const ARCHIVE_DIRECTORY: &str = "archive";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PrivateFileError {
@@ -33,6 +36,8 @@ pub(crate) struct PrivateFileStore {
     source_directory: PathBuf,
     ciphertext_directory: PathBuf,
     receive_temp_directory: PathBuf,
+    verified_directory: PathBuf,
+    archive_directory: PathBuf,
 }
 
 pub(crate) struct FileEncryptedAttachment {
@@ -45,8 +50,21 @@ pub(crate) struct VerifiedPlaintextTemp {
     pub(crate) header: EnvelopeHeader,
 }
 
+pub(crate) struct FileVerifiedArchive {
+    pub(crate) path: PathBuf,
+    pub(crate) verified: VerifiedArchive,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VerifiedPlaintextState {
+    Missing,
+    Temp,
+    Final,
+    Conflict,
+}
+
 impl PrivateFileStore {
-    /// Opens only a pre-created package root and its three fixed namespaces.
+    /// Opens only a pre-created package root and its five fixed namespaces.
     /// Platform code owns backup exclusion and iOS file-protection attributes.
     pub(crate) fn open(root: &Path) -> Result<Self, PrivateFileError> {
         let root = validate_directory(root, None)?;
@@ -55,10 +73,14 @@ impl PrivateFileStore {
             validate_directory(&root.join(CIPHERTEXT_DIRECTORY), Some(&root))?;
         let receive_temp_directory =
             validate_directory(&root.join(RECEIVE_TEMP_DIRECTORY), Some(&root))?;
+        let verified_directory = validate_directory(&root.join(VERIFIED_DIRECTORY), Some(&root))?;
+        let archive_directory = validate_directory(&root.join(ARCHIVE_DIRECTORY), Some(&root))?;
         Ok(Self {
             source_directory,
             ciphertext_directory,
             receive_temp_directory,
+            verified_directory,
+            archive_directory,
         })
     }
 
@@ -80,6 +102,21 @@ impl PrivateFileStore {
     pub(crate) fn receive_temp_path(&self, asset_id: CanonicalUuid) -> PathBuf {
         self.receive_temp_directory
             .join(format!("{}.plaintext.partial", uuid_hex(asset_id)))
+    }
+
+    pub(crate) fn verified_plaintext_path(&self, asset_id: CanonicalUuid) -> PathBuf {
+        self.verified_directory
+            .join(format!("{}.verified", uuid_hex(asset_id)))
+    }
+
+    pub(crate) fn archive_path(&self, asset_id: CanonicalUuid) -> PathBuf {
+        self.archive_directory
+            .join(format!("{}.archive", uuid_hex(asset_id)))
+    }
+
+    fn archive_temp_path(&self, asset_id: CanonicalUuid) -> PathBuf {
+        self.archive_directory
+            .join(format!("{}.archive.partial", uuid_hex(asset_id)))
     }
 
     pub(crate) fn encrypt_asset<C: CancellationCheck>(
@@ -219,6 +256,172 @@ impl PrivateFileStore {
             &self.receive_temp_directory,
         )
     }
+
+    pub(crate) fn verified_plaintext_state(
+        &self,
+        asset_id: CanonicalUuid,
+    ) -> Result<VerifiedPlaintextState, PrivateFileError> {
+        let temp = safe_file_exists(
+            &self.receive_temp_path(asset_id),
+            &self.receive_temp_directory,
+        )?;
+        let final_file = safe_file_exists(
+            &self.verified_plaintext_path(asset_id),
+            &self.verified_directory,
+        )?;
+        Ok(match (temp, final_file) {
+            (false, false) => VerifiedPlaintextState::Missing,
+            (true, false) => VerifiedPlaintextState::Temp,
+            (false, true) => VerifiedPlaintextState::Final,
+            (true, true) => VerifiedPlaintextState::Conflict,
+        })
+    }
+
+    pub(crate) fn promote_verified_plaintext(
+        &mut self,
+        asset_id: CanonicalUuid,
+    ) -> Result<PathBuf, PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        let temp_path = self.receive_temp_path(asset_id);
+        let final_path = self.verified_plaintext_path(asset_id);
+        validate_regular_file(&temp_path, &self.receive_temp_directory)?;
+        reject_existing(&final_path)?;
+        if std::fs::rename(&temp_path, &final_path).is_err() {
+            return Err(PrivateFileError::Io);
+        }
+        sync_directory(&self.receive_temp_directory)?;
+        sync_directory(&self.verified_directory)?;
+        validate_regular_file(&final_path, &self.verified_directory)?;
+        Ok(final_path)
+    }
+
+    pub(crate) fn create_verified_archive<C: CancellationCheck>(
+        &mut self,
+        conversation_id: CanonicalUuid,
+        asset_id: CanonicalUuid,
+        archive_key: &ArchiveKey,
+        cancellation: &mut C,
+    ) -> Result<FileVerifiedArchive, PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        let plaintext_path = self.verified_plaintext_path(asset_id);
+        let temp_path = self.archive_temp_path(asset_id);
+        let final_path = self.archive_path(asset_id);
+        let mut plaintext = open_regular_file(&plaintext_path, &self.verified_directory)?;
+        let plaintext_length = plaintext
+            .metadata()
+            .map_err(|_| PrivateFileError::Io)?
+            .len();
+        reject_existing(&temp_path)?;
+        reject_existing(&final_path)?;
+        let mut temp = create_private_read_write_file(&temp_path)?;
+        let verified = match create_and_verify_archive(
+            &mut plaintext,
+            &mut temp,
+            plaintext_length,
+            conversation_id,
+            asset_id,
+            archive_key,
+            cancellation,
+        ) {
+            Ok(verified) => verified,
+            Err(error) => {
+                drop(temp);
+                remove_exact_if_file(&temp_path);
+                return Err(map_archive_error(error));
+            }
+        };
+        if cancellation.is_cancelled() {
+            drop(temp);
+            remove_exact_if_file(&temp_path);
+            return Err(PrivateFileError::Cancelled);
+        }
+        if temp.sync_all().is_err() {
+            drop(temp);
+            remove_exact_if_file(&temp_path);
+            return Err(PrivateFileError::Io);
+        }
+        drop(temp);
+        if let Err(error) = reject_existing(&final_path) {
+            remove_exact_if_file(&temp_path);
+            return Err(error);
+        }
+        if std::fs::rename(&temp_path, &final_path).is_err() {
+            remove_exact_if_file(&temp_path);
+            return Err(PrivateFileError::Io);
+        }
+        if sync_directory(&self.archive_directory).is_err()
+            || validate_regular_file(&final_path, &self.archive_directory).is_err()
+        {
+            remove_exact_if_file(&final_path);
+            let _ = sync_directory(&self.archive_directory);
+            return Err(PrivateFileError::Io);
+        }
+        Ok(FileVerifiedArchive {
+            path: final_path,
+            verified,
+        })
+    }
+
+    pub(crate) fn remove_archive_orphans(
+        &mut self,
+        asset_id: CanonicalUuid,
+    ) -> Result<(), PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        remove_named_file_if_present(&self.archive_temp_path(asset_id), &self.archive_directory)?;
+        remove_named_file_if_present(&self.archive_path(asset_id), &self.archive_directory)
+    }
+
+    pub(crate) fn remove_unavailable_plaintext(
+        &mut self,
+        asset_id: CanonicalUuid,
+    ) -> Result<(), PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        remove_named_file_if_present(
+            &self.receive_temp_path(asset_id),
+            &self.receive_temp_directory,
+        )?;
+        remove_named_file_if_present(
+            &self.verified_plaintext_path(asset_id),
+            &self.verified_directory,
+        )
+    }
+
+    pub(crate) fn cleanup_available_transport(
+        &mut self,
+        asset_id: CanonicalUuid,
+    ) -> Result<(), PrivateFileError> {
+        let _guard = FILE_OPERATION_LOCK
+            .lock()
+            .map_err(|_| PrivateFileError::Io)?;
+        remove_named_file_if_present(
+            &self.receive_temp_path(asset_id),
+            &self.receive_temp_directory,
+        )?;
+        remove_named_file_if_present(
+            &self.verified_plaintext_path(asset_id),
+            &self.verified_directory,
+        )?;
+        remove_named_file_if_present(
+            &self.ciphertext_temp_path(asset_id),
+            &self.ciphertext_directory,
+        )?;
+        remove_named_file_if_present(&self.ciphertext_path(asset_id), &self.ciphertext_directory)
+    }
+
+    pub(crate) fn open_archive_file(
+        &self,
+        asset_id: CanonicalUuid,
+    ) -> Result<File, PrivateFileError> {
+        open_regular_file(&self.archive_path(asset_id), &self.archive_directory)
+    }
 }
 
 fn validate_directory(path: &Path, parent: Option<&Path>) -> Result<PathBuf, PrivateFileError> {
@@ -290,10 +493,37 @@ fn create_private_file(path: &Path) -> Result<File, PrivateFileError> {
         })
 }
 
+fn create_private_read_write_file(path: &Path) -> Result<File, PrivateFileError> {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                PrivateFileError::Conflict
+            } else {
+                PrivateFileError::Io
+            }
+        })
+}
+
 fn reject_existing(path: &Path) -> Result<(), PrivateFileError> {
     match std::fs::symlink_metadata(path) {
         Ok(_) => Err(PrivateFileError::Conflict),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(PrivateFileError::Io),
+    }
+}
+
+fn safe_file_exists(path: &Path, parent: &Path) -> Result<bool, PrivateFileError> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => {
+            validate_regular_file(path, parent)?;
+            Ok(true)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(_) => Err(PrivateFileError::Io),
     }
 }
@@ -348,12 +578,24 @@ fn map_envelope_error(error: AttachmentEnvelopeError) -> PrivateFileError {
     }
 }
 
+fn map_archive_error(error: ArchiveError) -> PrivateFileError {
+    match error {
+        ArchiveError::InvalidInput => PrivateFileError::InvalidInput,
+        ArchiveError::Authentication => PrivateFileError::Authentication,
+        ArchiveError::Io => PrivateFileError::Io,
+        ArchiveError::Cryptography => PrivateFileError::Cryptography,
+        ArchiveError::Cancelled => PrivateFileError::Cancelled,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write;
 
     use super::*;
+    use crate::archive::{ArchiveDescriptor, ArchiveKey, open_archive};
     use crate::attachment_envelope::{HEADER_BYTES, NeverCancelled};
+    use crate::key_material::generate;
 
     fn uuid(value: u8) -> Result<CanonicalUuid, PrivateFileError> {
         CanonicalUuid::from_network_bytes([value; 16]).map_err(|_| PrivateFileError::InvalidInput)
@@ -376,6 +618,8 @@ mod tests {
             SOURCE_DIRECTORY,
             CIPHERTEXT_DIRECTORY,
             RECEIVE_TEMP_DIRECTORY,
+            VERIFIED_DIRECTORY,
+            ARCHIVE_DIRECTORY,
         ] {
             let path = root.join(name);
             std::fs::create_dir(&path).map_err(|_| PrivateFileError::Io)?;
@@ -626,6 +870,112 @@ mod tests {
             Err(PrivateFileError::UnsafePath)
         ));
         std::fs::remove_file(&linked_root).map_err(|_| PrivateFileError::Io)?;
+        cleanup(&root)
+    }
+
+    #[test]
+    fn archives_verified_plaintext_before_transport_cleanup() -> Result<(), PrivateFileError> {
+        let (root, mut store) = create_store("archive-lifecycle")?;
+        let conversation_id = uuid(1)?;
+        let asset_id = uuid(2)?;
+        let expected: Vec<u8> = (0..70_000).map(|index| (index % 251) as u8).collect();
+        std::fs::write(store.source_path(asset_id), &expected).map_err(|_| PrivateFileError::Io)?;
+        std::fs::set_permissions(
+            store.source_path(asset_id),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .map_err(|_| PrivateFileError::Io)?;
+        let encrypted = store.encrypt_asset(conversation_id, asset_id, &mut NeverCancelled)?;
+        store.decrypt_to_unverified_temp(
+            asset_id,
+            &encrypted.encrypted.manifest,
+            &mut NeverCancelled,
+        )?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Temp
+        );
+        store.promote_verified_plaintext(asset_id)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Final
+        );
+        let (root_keys, _) = generate().map_err(|_| PrivateFileError::Cryptography)?;
+        let archive_key = ArchiveKey::from_root(&root_keys).map_err(map_archive_error)?;
+        let archived = store.create_verified_archive(
+            conversation_id,
+            asset_id,
+            &archive_key,
+            &mut NeverCancelled,
+        )?;
+        assert_eq!(archived.path, store.archive_path(asset_id));
+        let descriptor: ArchiveDescriptor = *archived.verified.descriptor();
+        let mut archive = store.open_archive_file(asset_id)?;
+        let mut opened = Vec::new();
+        open_archive(
+            &mut archive,
+            &mut opened,
+            &descriptor,
+            &archive_key,
+            &mut NeverCancelled,
+        )
+        .map_err(map_archive_error)?;
+        assert_eq!(opened, expected);
+
+        store.cleanup_available_transport(asset_id)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Missing
+        );
+        assert!(!store.ciphertext_path(asset_id).exists());
+        assert!(store.archive_path(asset_id).is_file());
+        cleanup(&root)
+    }
+
+    #[test]
+    fn classifies_verified_temp_relaunch_states_and_removes_archive_orphans()
+    -> Result<(), PrivateFileError> {
+        let (root, mut store) = create_store("relaunch-state")?;
+        let asset_id = uuid(2)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Missing
+        );
+        std::fs::write(store.receive_temp_path(asset_id), b"temp")
+            .map_err(|_| PrivateFileError::Io)?;
+        std::fs::set_permissions(
+            store.receive_temp_path(asset_id),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .map_err(|_| PrivateFileError::Io)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Temp
+        );
+        std::fs::write(store.verified_plaintext_path(asset_id), b"final")
+            .map_err(|_| PrivateFileError::Io)?;
+        std::fs::set_permissions(
+            store.verified_plaintext_path(asset_id),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .map_err(|_| PrivateFileError::Io)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Conflict
+        );
+        store.remove_unavailable_plaintext(asset_id)?;
+        assert_eq!(
+            store.verified_plaintext_state(asset_id)?,
+            VerifiedPlaintextState::Missing
+        );
+
+        std::fs::write(store.archive_temp_path(asset_id), b"partial")
+            .map_err(|_| PrivateFileError::Io)?;
+        std::fs::write(store.archive_path(asset_id), b"stable orphan")
+            .map_err(|_| PrivateFileError::Io)?;
+        store.remove_archive_orphans(asset_id)?;
+        assert!(!store.archive_temp_path(asset_id).exists());
+        assert!(!store.archive_path(asset_id).exists());
         cleanup(&root)
     }
 }

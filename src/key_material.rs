@@ -70,6 +70,10 @@ impl RootKeyMaterial {
     pub(crate) fn agreement_secret(&self) -> &[u8] {
         &self.0[KEY_BYTES..KEY_BYTES * 2]
     }
+
+    pub(crate) fn archive_secret(&self) -> &[u8] {
+        &self.0[KEY_BYTES * 2..]
+    }
 }
 
 /// Platform implementations must enforce lock checks around every operation.

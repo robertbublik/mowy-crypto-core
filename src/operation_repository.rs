@@ -2,9 +2,10 @@
 
 use std::path::Path;
 
-use libsodium_rs::{crypto_verify, utils};
+use libsodium_rs::{crypto_hash::sha256, crypto_verify, utils};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 
+use crate::archive::{ArchiveDescriptor, ArchiveError, VerifiedArchive};
 use crate::attachment_manifest::{AttachmentManifest, AttachmentManifestError, DIGEST_BYTES};
 use crate::key_bundle::CanonicalUuid;
 use crate::sealed_manifest::{OpenedManifest, SEALED_BYTES, SealedManifest};
@@ -12,6 +13,10 @@ use crate::sealed_manifest::{OpenedManifest, SEALED_BYTES, SealedManifest};
 const SENDER_ENCRYPTING: i64 = 1;
 const SENDER_OUTBOX: i64 = 2;
 const RECEIVER_WAITING: i64 = 1;
+const RECEIVER_VERIFIED_TEMP: i64 = 2;
+const RECEIVER_AVAILABLE: i64 = 3;
+const RECEIVER_UNAVAILABLE: i64 = 4;
+const OUTCOME_RESEND: i64 = 1;
 const WAITING_SECONDS: u64 = 24 * 60 * 60;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,6 +36,14 @@ pub(crate) enum SenderState {
 pub(crate) enum ReceiverCommit {
     Created,
     Existing(CanonicalUuid),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ReceiverState {
+    WaitingForCiphertext,
+    VerifiedTemp,
+    Available,
+    UnavailableResend,
 }
 
 pub(crate) struct StoredOutbox {
@@ -54,6 +67,17 @@ pub(crate) struct WaitingOperation {
     pub(crate) expires_at: u64,
 }
 
+pub(crate) struct AvailableOperation {
+    pub(crate) archive_name: String,
+    pub(crate) descriptor: ArchiveDescriptor,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ExpiredOperation {
+    pub(crate) operation_id: CanonicalUuid,
+    pub(crate) asset_id: CanonicalUuid,
+}
+
 pub(crate) struct OperationRepository {
     connection: Connection,
 }
@@ -69,7 +93,7 @@ impl OperationRepository {
     }
 
     #[cfg(test)]
-    fn in_memory() -> Result<Self, OperationRepositoryError> {
+    pub(crate) fn in_memory() -> Result<Self, OperationRepositoryError> {
         let connection =
             Connection::open_in_memory().map_err(|_| OperationRepositoryError::Storage)?;
         Self::from_connection(connection)
@@ -107,16 +131,22 @@ impl OperationRepository {
                    conversation_id BLOB NOT NULL CHECK(typeof(conversation_id) = 'blob' AND length(conversation_id) = 16 AND conversation_id != zeroblob(16)),
                    asset_id BLOB NOT NULL CHECK(typeof(asset_id) = 'blob' AND length(asset_id) = 16 AND asset_id != zeroblob(16)),
                    sender_device_id BLOB NOT NULL CHECK(typeof(sender_device_id) = 'blob' AND length(sender_device_id) = 16 AND sender_device_id != zeroblob(16)),
-                   state INTEGER NOT NULL CHECK(state = 1),
+                   state INTEGER NOT NULL CHECK(state IN (1, 2, 3, 4)),
                    recipient_key_id BLOB NOT NULL CHECK(typeof(recipient_key_id) = 'blob' AND length(recipient_key_id) = 16 AND recipient_key_id != zeroblob(16)),
-                   sealed_blob BLOB NOT NULL CHECK(typeof(sealed_blob) = 'blob' AND length(sealed_blob) = 408),
+                   sealed_blob BLOB CHECK((state IN (1, 2) AND typeof(sealed_blob) = 'blob' AND length(sealed_blob) = 408) OR (state IN (3, 4) AND sealed_blob IS NULL)),
+                   manifest_digest BLOB NOT NULL CHECK(typeof(manifest_digest) = 'blob' AND length(manifest_digest) = 32),
                    ciphertext_name TEXT NOT NULL CHECK(typeof(ciphertext_name) = 'text' AND length(ciphertext_name) = 37),
                    plaintext_temp_name TEXT NOT NULL CHECK(typeof(plaintext_temp_name) = 'text' AND length(plaintext_temp_name) = 50),
+                   plaintext_final_name TEXT NOT NULL CHECK(typeof(plaintext_final_name) = 'text' AND length(plaintext_final_name) = 41),
                    plaintext_length BLOB NOT NULL CHECK(typeof(plaintext_length) = 'blob' AND length(plaintext_length) = 8),
                    ciphertext_length BLOB NOT NULL CHECK(typeof(ciphertext_length) = 'blob' AND length(ciphertext_length) = 8),
                    ciphertext_digest BLOB NOT NULL CHECK(typeof(ciphertext_digest) = 'blob' AND length(ciphertext_digest) = 32),
                    created_at BLOB NOT NULL CHECK(typeof(created_at) = 'blob' AND length(created_at) = 8),
-                   expires_at BLOB NOT NULL CHECK(typeof(expires_at) = 'blob' AND length(expires_at) = 8)
+                   expires_at BLOB NOT NULL CHECK(typeof(expires_at) = 'blob' AND length(expires_at) = 8),
+                   archive_name TEXT CHECK((state = 3 AND typeof(archive_name) = 'text' AND length(archive_name) = 40) OR (state != 3 AND archive_name IS NULL)),
+                   archive_ciphertext_length BLOB CHECK((state = 3 AND typeof(archive_ciphertext_length) = 'blob' AND length(archive_ciphertext_length) = 8) OR (state != 3 AND archive_ciphertext_length IS NULL)),
+                   archive_ciphertext_digest BLOB CHECK((state = 3 AND typeof(archive_ciphertext_digest) = 'blob' AND length(archive_ciphertext_digest) = 32) OR (state != 3 AND archive_ciphertext_digest IS NULL)),
+                   unavailable_outcome INTEGER CHECK((state = 4 AND unavailable_outcome = 1) OR (state != 4 AND unavailable_outcome IS NULL))
                  ) WITHOUT ROWID, STRICT;
                  CREATE TABLE IF NOT EXISTS attachment_replay_ledger (
                    conversation_id BLOB NOT NULL CHECK(typeof(conversation_id) = 'blob' AND length(conversation_id) = 16 AND conversation_id != zeroblob(16)),
@@ -282,6 +312,7 @@ impl OperationRepository {
         let plaintext_length = manifest.plaintext_length().map_err(map_manifest_error)?;
         let ciphertext_length = manifest.ciphertext_length().map_err(map_manifest_error)?;
         let ciphertext_digest = manifest.ciphertext_digest().map_err(map_manifest_error)?;
+        let manifest_digest = sha256::hash(manifest.as_bytes());
         let expires_at = now
             .checked_add(WAITING_SECONDS)
             .ok_or(OperationRepositoryError::InvalidInput)?;
@@ -310,9 +341,10 @@ impl OperationRepository {
             .execute(
                 "INSERT INTO receiver_operations (
                    operation_id, conversation_id, asset_id, sender_device_id, state,
-                   recipient_key_id, sealed_blob, ciphertext_name, plaintext_temp_name,
-                   plaintext_length, ciphertext_length, ciphertext_digest, created_at, expires_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                   recipient_key_id, sealed_blob, manifest_digest, ciphertext_name,
+                   plaintext_temp_name, plaintext_final_name, plaintext_length,
+                   ciphertext_length, ciphertext_digest, created_at, expires_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                 params![
                     uuid_bytes(operation_id),
                     uuid_bytes(conversation_id),
@@ -321,8 +353,10 @@ impl OperationRepository {
                     RECEIVER_WAITING,
                     uuid_bytes(sealed.recipient_key_id),
                     sealed.as_bytes().as_slice(),
+                    manifest_digest.as_slice(),
                     ciphertext_name(asset_id),
                     plaintext_temp_name(asset_id),
+                    plaintext_final_name(asset_id),
                     u64_bytes(plaintext_length),
                     u64_bytes(ciphertext_length),
                     ciphertext_digest.as_slice(),
@@ -381,6 +415,247 @@ impl OperationRepository {
             .optional()
             .map_err(|_| OperationRepositoryError::Storage)?
             .map(decode_waiting)
+            .transpose()
+    }
+
+    pub(crate) fn receiver_state(
+        &self,
+        operation_id: CanonicalUuid,
+    ) -> Result<Option<ReceiverState>, OperationRepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT state FROM receiver_operations WHERE operation_id = ?1",
+                params![uuid_bytes(operation_id)],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(|_| OperationRepositoryError::Storage)?
+            .map(decode_receiver_state)
+            .transpose()
+    }
+
+    pub(crate) fn require_exact_receiver(
+        &self,
+        operation_id: CanonicalUuid,
+        opened: &OpenedManifest,
+    ) -> Result<(), OperationRepositoryError> {
+        let manifest = opened.manifest();
+        let conversation_id = manifest.conversation_id().map_err(map_manifest_error)?;
+        let asset_id = manifest.asset_id().map_err(map_manifest_error)?;
+        let existing = load_replay_operation(
+            &self.connection,
+            conversation_id,
+            asset_id,
+            opened.sender_device_id,
+        )?
+        .ok_or(OperationRepositoryError::Conflict)?;
+        if !uuid_equal(existing, operation_id)
+            || !receiver_operation_matches(
+                &self.connection,
+                operation_id,
+                opened.source_sealed(),
+                manifest,
+            )?
+        {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn mark_verified_temp(
+        &mut self,
+        operation_id: CanonicalUuid,
+    ) -> Result<(), OperationRepositoryError> {
+        transition_receiver_state(
+            &mut self.connection,
+            operation_id,
+            RECEIVER_WAITING,
+            RECEIVER_VERIFIED_TEMP,
+        )
+    }
+
+    pub(crate) fn reset_verified_temp_to_waiting(
+        &mut self,
+        operation_id: CanonicalUuid,
+    ) -> Result<(), OperationRepositoryError> {
+        transition_receiver_state(
+            &mut self.connection,
+            operation_id,
+            RECEIVER_VERIFIED_TEMP,
+            RECEIVER_WAITING,
+        )
+    }
+
+    pub(crate) fn commit_available(
+        &mut self,
+        operation_id: CanonicalUuid,
+        verified_archive: &VerifiedArchive,
+    ) -> Result<(), OperationRepositoryError> {
+        let archive = verified_archive.descriptor();
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let identity = load_receiver_archive_identity(&transaction, operation_id)?
+            .ok_or(OperationRepositoryError::Conflict)?;
+        if identity.3 == RECEIVER_AVAILABLE {
+            if available_matches(&transaction, operation_id, archive)? {
+                transaction
+                    .commit()
+                    .map_err(|_| OperationRepositoryError::Storage)?;
+                return Ok(());
+            }
+            return Err(OperationRepositoryError::Conflict);
+        }
+        if identity.3 != RECEIVER_VERIFIED_TEMP
+            || !uuid_equal(identity.0, archive.conversation_id())
+            || !uuid_equal(identity.1, archive.asset_id())
+            || identity.2 != archive.plaintext_length()
+        {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        let changed = transaction
+            .execute(
+                "UPDATE receiver_operations
+                 SET state = ?2, sealed_blob = NULL, archive_name = ?3,
+                     archive_ciphertext_length = ?4, archive_ciphertext_digest = ?5
+                 WHERE operation_id = ?1 AND state = ?6",
+                params![
+                    uuid_bytes(operation_id),
+                    RECEIVER_AVAILABLE,
+                    archive_name(archive.asset_id()),
+                    u64_bytes(archive.ciphertext_length()),
+                    archive.ciphertext_digest().as_slice(),
+                    RECEIVER_VERIFIED_TEMP,
+                ],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        if changed != 1 {
+            return Err(OperationRepositoryError::Conflict);
+        }
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)
+    }
+
+    pub(crate) fn load_available(
+        &self,
+        operation_id: CanonicalUuid,
+    ) -> Result<Option<AvailableOperation>, OperationRepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT conversation_id, asset_id, plaintext_length, archive_name,
+                        archive_ciphertext_length, archive_ciphertext_digest
+                 FROM receiver_operations
+                 WHERE operation_id = ?1 AND state = ?2 AND sealed_blob IS NULL",
+                params![uuid_bytes(operation_id), RECEIVER_AVAILABLE],
+                |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, Vec<u8>>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, Vec<u8>>(4)?,
+                        row.get::<_, Vec<u8>>(5)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|_| OperationRepositoryError::Storage)?
+            .map(decode_available)
+            .transpose()
+    }
+
+    pub(crate) fn expire_waiting(
+        &mut self,
+        now: u64,
+    ) -> Result<Vec<ExpiredOperation>, OperationRepositoryError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let expired = {
+            let mut statement = transaction
+                .prepare(
+                    "SELECT operation_id, asset_id FROM receiver_operations
+                     WHERE state = ?1 AND expires_at <= ?2",
+                )
+                .map_err(|_| OperationRepositoryError::Storage)?;
+            let rows = statement
+                .query_map(params![RECEIVER_WAITING, u64_bytes(now)], |row| {
+                    Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+                })
+                .map_err(|_| OperationRepositoryError::Storage)?;
+            let encoded = rows
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(|_| OperationRepositoryError::Storage)?;
+            encoded
+                .into_iter()
+                .map(|row| {
+                    Ok(ExpiredOperation {
+                        operation_id: decode_uuid(row.0)?,
+                        asset_id: decode_uuid(row.1)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, OperationRepositoryError>>()?
+        };
+        transaction
+            .execute(
+                "UPDATE receiver_operations
+                 SET state = ?1, sealed_blob = NULL, unavailable_outcome = ?2
+                 WHERE state = ?3 AND expires_at <= ?4",
+                params![
+                    RECEIVER_UNAVAILABLE,
+                    OUTCOME_RESEND,
+                    RECEIVER_WAITING,
+                    u64_bytes(now),
+                ],
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        Ok(expired)
+    }
+
+    pub(crate) fn unconsumed_for_recipient_key(
+        &self,
+        recipient_key_id: CanonicalUuid,
+    ) -> Result<u64, OperationRepositoryError> {
+        let count: i64 = self
+            .connection
+            .query_row(
+                "SELECT count(*) FROM receiver_operations
+                 WHERE recipient_key_id = ?1 AND state IN (?2, ?3)",
+                params![
+                    uuid_bytes(recipient_key_id),
+                    RECEIVER_WAITING,
+                    RECEIVER_VERIFIED_TEMP,
+                ],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        u64::try_from(count).map_err(|_| OperationRepositoryError::Storage)
+    }
+
+    pub(crate) fn unavailable_asset(
+        &self,
+        operation_id: CanonicalUuid,
+    ) -> Result<Option<CanonicalUuid>, OperationRepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT asset_id FROM receiver_operations
+                 WHERE operation_id = ?1 AND state = ?2 AND unavailable_outcome = ?3",
+                params![
+                    uuid_bytes(operation_id),
+                    RECEIVER_UNAVAILABLE,
+                    OUTCOME_RESEND,
+                ],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .optional()
+            .map_err(|_| OperationRepositoryError::Storage)?
+            .map(decode_uuid)
             .transpose()
     }
 }
@@ -457,6 +732,125 @@ fn decode_sender_state(state: i64) -> Result<SenderState, OperationRepositoryErr
         SENDER_OUTBOX => Ok(SenderState::Outbox),
         _ => Err(OperationRepositoryError::Storage),
     }
+}
+
+fn decode_receiver_state(state: i64) -> Result<ReceiverState, OperationRepositoryError> {
+    match state {
+        RECEIVER_WAITING => Ok(ReceiverState::WaitingForCiphertext),
+        RECEIVER_VERIFIED_TEMP => Ok(ReceiverState::VerifiedTemp),
+        RECEIVER_AVAILABLE => Ok(ReceiverState::Available),
+        RECEIVER_UNAVAILABLE => Ok(ReceiverState::UnavailableResend),
+        _ => Err(OperationRepositoryError::Storage),
+    }
+}
+
+fn transition_receiver_state(
+    connection: &mut Connection,
+    operation_id: CanonicalUuid,
+    from: i64,
+    to: i64,
+) -> Result<(), OperationRepositoryError> {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|_| OperationRepositoryError::Storage)?;
+    let state = transaction
+        .query_row(
+            "SELECT state FROM receiver_operations WHERE operation_id = ?1",
+            params![uuid_bytes(operation_id)],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|_| OperationRepositoryError::Storage)?
+        .ok_or(OperationRepositoryError::Conflict)?;
+    if state == to {
+        transaction
+            .commit()
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        return Ok(());
+    }
+    if state != from {
+        return Err(OperationRepositoryError::Conflict);
+    }
+    let changed = transaction
+        .execute(
+            "UPDATE receiver_operations SET state = ?2
+             WHERE operation_id = ?1 AND state = ?3",
+            params![uuid_bytes(operation_id), to, from],
+        )
+        .map_err(|_| OperationRepositoryError::Storage)?;
+    if changed != 1 {
+        return Err(OperationRepositoryError::Conflict);
+    }
+    transaction
+        .commit()
+        .map_err(|_| OperationRepositoryError::Storage)
+}
+
+type ReceiverArchiveIdentity = (CanonicalUuid, CanonicalUuid, u64, i64);
+
+fn load_receiver_archive_identity(
+    connection: &Connection,
+    operation_id: CanonicalUuid,
+) -> Result<Option<ReceiverArchiveIdentity>, OperationRepositoryError> {
+    connection
+        .query_row(
+            "SELECT conversation_id, asset_id, plaintext_length, state
+             FROM receiver_operations WHERE operation_id = ?1",
+            params![uuid_bytes(operation_id)],
+            |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, i64>(3)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| OperationRepositoryError::Storage)?
+        .map(|row| {
+            Ok((
+                decode_uuid(row.0)?,
+                decode_uuid(row.1)?,
+                decode_u64(row.2)?,
+                row.3,
+            ))
+        })
+        .transpose()
+}
+
+fn available_matches(
+    connection: &Connection,
+    operation_id: CanonicalUuid,
+    archive: &ArchiveDescriptor,
+) -> Result<bool, OperationRepositoryError> {
+    let stored = connection
+        .query_row(
+            "SELECT conversation_id, asset_id, plaintext_length,
+                    archive_ciphertext_length, archive_ciphertext_digest
+             FROM receiver_operations WHERE operation_id = ?1 AND state = ?2",
+            params![uuid_bytes(operation_id), RECEIVER_AVAILABLE],
+            |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, Vec<u8>>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|_| OperationRepositoryError::Storage)?;
+    let Some(row) = stored else {
+        return Err(OperationRepositoryError::Storage);
+    };
+    let digest: [u8; DIGEST_BYTES] = exact_array(row.4)?;
+    Ok(uuid_equal(decode_uuid(row.0)?, archive.conversation_id())
+        && uuid_equal(decode_uuid(row.1)?, archive.asset_id())
+        && decode_u64(row.2)? == archive.plaintext_length()
+        && decode_u64(row.3)? == archive.ciphertext_length()
+        && crypto_verify::verify_32(&digest, &archive.ciphertext_digest()))
 }
 
 fn sender_outbox_matches(
@@ -549,7 +943,7 @@ fn receiver_operation_matches(
 ) -> Result<bool, OperationRepositoryError> {
     let row = connection
         .query_row(
-            "SELECT recipient_key_id, sealed_blob, plaintext_length,
+            "SELECT recipient_key_id, manifest_digest, plaintext_length,
                     ciphertext_length, ciphertext_digest
              FROM receiver_operations WHERE operation_id = ?1",
             params![uuid_bytes(operation_id)],
@@ -565,12 +959,12 @@ fn receiver_operation_matches(
         )
         .map_err(|_| OperationRepositoryError::Storage)?;
     let recipient_key_id = decode_uuid(row.0)?;
-    let stored_sealed: [u8; SEALED_BYTES] = exact_array(row.1)?;
+    let stored_manifest_digest: [u8; DIGEST_BYTES] = exact_array(row.1)?;
     let plaintext_length = decode_u64(row.2)?;
     let ciphertext_length = decode_u64(row.3)?;
     let digest: [u8; DIGEST_BYTES] = exact_array(row.4)?;
     Ok(uuid_equal(recipient_key_id, sealed.recipient_key_id)
-        && utils::memcmp(&stored_sealed, sealed.as_bytes())
+        && crypto_verify::verify_32(&stored_manifest_digest, &sha256::hash(manifest.as_bytes()))
         && plaintext_length == manifest.plaintext_length().map_err(map_manifest_error)?
         && ciphertext_length == manifest.ciphertext_length().map_err(map_manifest_error)?
         && crypto_verify::verify_32(
@@ -625,6 +1019,23 @@ fn decode_waiting(row: WaitingRow) -> Result<WaitingOperation, OperationReposito
     })
 }
 
+type AvailableRow = (Vec<u8>, Vec<u8>, Vec<u8>, String, Vec<u8>, Vec<u8>);
+
+fn decode_available(row: AvailableRow) -> Result<AvailableOperation, OperationRepositoryError> {
+    let descriptor = ArchiveDescriptor::new(
+        decode_uuid(row.0)?,
+        decode_uuid(row.1)?,
+        decode_u64(row.2)?,
+        decode_u64(row.4)?,
+        exact_array(row.5)?,
+    )
+    .map_err(map_archive_error)?;
+    Ok(AvailableOperation {
+        archive_name: row.3,
+        descriptor,
+    })
+}
+
 fn uuid_bytes(uuid: CanonicalUuid) -> Vec<u8> {
     uuid.as_network_bytes().to_vec()
 }
@@ -656,6 +1067,10 @@ fn map_manifest_error(_: AttachmentManifestError) -> OperationRepositoryError {
     OperationRepositoryError::InvalidInput
 }
 
+fn map_archive_error(_: ArchiveError) -> OperationRepositoryError {
+    OperationRepositoryError::InvalidInput
+}
+
 fn asset_prefix(asset_id: CanonicalUuid) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(32);
@@ -678,9 +1093,21 @@ fn plaintext_temp_name(asset_id: CanonicalUuid) -> String {
     format!("{}.plaintext.partial", asset_prefix(asset_id))
 }
 
+fn plaintext_final_name(asset_id: CanonicalUuid) -> String {
+    format!("{}.verified", asset_prefix(asset_id))
+}
+
+fn archive_name(asset_id: CanonicalUuid) -> String {
+    format!("{}.archive", asset_prefix(asset_id))
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
+    use crate::archive::{ArchiveKey, create_and_verify_archive};
+    use crate::attachment_envelope::NeverCancelled;
     use crate::attachment_manifest::{
         ATTACHMENT_KEY_BYTES, AttachmentKey, canonical_ciphertext_length,
     };
@@ -710,6 +1137,20 @@ mod tests {
     fn sealed(selector: u8, blob: u8) -> Result<SealedManifest, OperationRepositoryError> {
         SealedManifest::parse(uuid(selector)?, &[blob; SEALED_BYTES])
             .map_err(|_| OperationRepositoryError::InvalidInput)
+    }
+
+    fn verified_archive() -> Result<VerifiedArchive, OperationRepositoryError> {
+        let plaintext: Vec<u8> = (0..65_537).map(|index| (index % 251) as u8).collect();
+        create_and_verify_archive(
+            &mut Cursor::new(plaintext),
+            &mut Cursor::new(Vec::new()),
+            65_537,
+            uuid(1)?,
+            uuid(2)?,
+            &ArchiveKey::from_fixture([0x31; ATTACHMENT_KEY_BYTES]),
+            &mut NeverCancelled,
+        )
+        .map_err(map_archive_error)
     }
 
     #[test]
@@ -813,8 +1254,14 @@ mod tests {
             repository.commit_received_manifest(second_operation, &opened, 101)?,
             ReceiverCommit::Existing(first_operation)
         );
-        let conflicting =
+        let resealed =
             OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed(4, 0x91)?);
+        assert_eq!(
+            repository.commit_received_manifest(second_operation, &resealed, 101)?,
+            ReceiverCommit::Existing(first_operation)
+        );
+        let conflicting =
+            OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x81)?, sealed(4, 0x91)?);
         assert_eq!(
             repository
                 .commit_received_manifest(second_operation, &conflicting, 101)
@@ -896,6 +1343,137 @@ mod tests {
             })
             .map_err(|_| OperationRepositoryError::Storage)?;
         assert_eq!(replay_count, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn archive_commit_erases_sealed_blob_and_is_exactly_idempotent()
+    -> Result<(), OperationRepositoryError> {
+        let mut repository = OperationRepository::in_memory()?;
+        let operation_id = uuid(7)?;
+        let opened =
+            OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed(4, 0x90)?);
+        repository.commit_received_manifest(operation_id, &opened, 100)?;
+        assert_eq!(repository.unconsumed_for_recipient_key(uuid(4)?)?, 1);
+        repository.mark_verified_temp(operation_id)?;
+        repository.mark_verified_temp(operation_id)?;
+        assert_eq!(
+            repository.receiver_state(operation_id)?,
+            Some(ReceiverState::VerifiedTemp)
+        );
+        let verified_archive = verified_archive()?;
+        let archive = *verified_archive.descriptor();
+        repository.commit_available(operation_id, &verified_archive)?;
+        repository.commit_available(operation_id, &verified_archive)?;
+        assert_eq!(
+            repository.receiver_state(operation_id)?,
+            Some(ReceiverState::Available)
+        );
+        assert!(repository.load_waiting(operation_id)?.is_none());
+        let available = repository
+            .load_available(operation_id)?
+            .ok_or(OperationRepositoryError::Storage)?;
+        assert_eq!(available.archive_name, archive_name(uuid(2)?));
+        assert_eq!(available.descriptor, archive);
+        assert_eq!(repository.unconsumed_for_recipient_key(uuid(4)?)?, 0);
+        let sealed_count: i64 = repository
+            .connection
+            .query_row(
+                "SELECT count(*) FROM receiver_operations
+                 WHERE operation_id = ?1 AND sealed_blob IS NOT NULL",
+                params![uuid_bytes(operation_id)],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        assert_eq!(sealed_count, 0);
+
+        let replay =
+            OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed(4, 0x91)?);
+        assert_eq!(
+            repository.commit_received_manifest(uuid(8)?, &replay, 200)?,
+            ReceiverCommit::Existing(operation_id)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn available_transaction_failure_retains_transport_state()
+    -> Result<(), OperationRepositoryError> {
+        let mut repository = OperationRepository::in_memory()?;
+        let operation_id = uuid(7)?;
+        let opened =
+            OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed(4, 0x90)?);
+        repository.commit_received_manifest(operation_id, &opened, 100)?;
+        repository.mark_verified_temp(operation_id)?;
+        repository
+            .connection
+            .execute_batch(
+                "CREATE TEMP TRIGGER fail_available_commit
+                 BEFORE UPDATE ON receiver_operations
+                 BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;",
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        let archive = verified_archive()?;
+        assert_eq!(
+            repository.commit_available(operation_id, &archive).err(),
+            Some(OperationRepositoryError::Storage)
+        );
+        assert_eq!(
+            repository.receiver_state(operation_id)?,
+            Some(ReceiverState::VerifiedTemp)
+        );
+        let retained: i64 = repository
+            .connection
+            .query_row(
+                "SELECT count(*) FROM receiver_operations
+                 WHERE operation_id = ?1 AND sealed_blob IS NOT NULL AND archive_name IS NULL",
+                params![uuid_bytes(operation_id)],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        assert_eq!(retained, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn waiting_expiry_erases_sealed_blob_and_records_resend() -> Result<(), OperationRepositoryError>
+    {
+        let mut repository = OperationRepository::in_memory()?;
+        let waiting_id = uuid(7)?;
+        let verified_id = uuid(8)?;
+        let waiting =
+            OpenedManifest::from_fixture(uuid(3)?, manifest(1, 2, 0x80)?, sealed(4, 0x90)?);
+        let verified =
+            OpenedManifest::from_fixture(uuid(6)?, manifest(1, 5, 0x81)?, sealed(4, 0x91)?);
+        repository.commit_received_manifest(waiting_id, &waiting, 100)?;
+        repository.commit_received_manifest(verified_id, &verified, 100)?;
+        repository.mark_verified_temp(verified_id)?;
+        assert!(repository.expire_waiting(86_499)?.is_empty());
+        assert_eq!(
+            repository.expire_waiting(86_500)?,
+            vec![ExpiredOperation {
+                operation_id: waiting_id,
+                asset_id: uuid(2)?,
+            }]
+        );
+        assert_eq!(
+            repository.receiver_state(waiting_id)?,
+            Some(ReceiverState::UnavailableResend)
+        );
+        assert_eq!(
+            repository.receiver_state(verified_id)?,
+            Some(ReceiverState::VerifiedTemp)
+        );
+        let erased: i64 = repository
+            .connection
+            .query_row(
+                "SELECT count(*) FROM receiver_operations
+                 WHERE operation_id = ?1 AND sealed_blob IS NULL AND unavailable_outcome = ?2",
+                params![uuid_bytes(waiting_id), OUTCOME_RESEND],
+                |row| row.get(0),
+            )
+            .map_err(|_| OperationRepositoryError::Storage)?;
+        assert_eq!(erased, 1);
         Ok(())
     }
 
