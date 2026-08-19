@@ -142,6 +142,16 @@ pub(crate) fn chunk_count(plaintext_length: u64) -> Result<u32, AttachmentManife
     if plaintext_length == 0 || plaintext_length > MAX_P2_PLAINTEXT_BYTES {
         return Err(AttachmentManifestError::InvalidInput);
     }
+    format_chunk_count(plaintext_length)
+}
+
+pub(crate) fn format_chunk_count(plaintext_length: u64) -> Result<u32, AttachmentManifestError> {
+    let format_maximum = u64::from(u32::MAX)
+        .checked_mul(CHUNK_BYTES)
+        .ok_or(AttachmentManifestError::InvalidInput)?;
+    if plaintext_length == 0 || plaintext_length > format_maximum {
+        return Err(AttachmentManifestError::InvalidInput);
+    }
     let count = plaintext_length
         .checked_add(CHUNK_BYTES - 1)
         .ok_or(AttachmentManifestError::InvalidInput)?
@@ -152,7 +162,16 @@ pub(crate) fn chunk_count(plaintext_length: u64) -> Result<u32, AttachmentManife
 pub(crate) fn canonical_ciphertext_length(
     plaintext_length: u64,
 ) -> Result<u64, AttachmentManifestError> {
-    let count = u64::from(chunk_count(plaintext_length)?);
+    if plaintext_length == 0 || plaintext_length > MAX_P2_PLAINTEXT_BYTES {
+        return Err(AttachmentManifestError::InvalidInput);
+    }
+    format_ciphertext_length(plaintext_length)
+}
+
+pub(crate) fn format_ciphertext_length(
+    plaintext_length: u64,
+) -> Result<u64, AttachmentManifestError> {
+    let count = u64::from(format_chunk_count(plaintext_length)?);
     ENVELOPE_HEADER_BYTES
         .checked_add(plaintext_length)
         .and_then(|length| length.checked_add(count * RECORD_OVERHEAD_BYTES))
@@ -224,6 +243,15 @@ mod tests {
         assert_eq!(chunk_count(CHUNK_BYTES), Ok(1));
         assert_eq!(chunk_count(CHUNK_BYTES + 1), Ok(2));
         assert_eq!(chunk_count(MAX_P2_PLAINTEXT_BYTES), Ok(400));
+        assert_eq!(format_chunk_count(MAX_P2_PLAINTEXT_BYTES + 1), Ok(401));
+        assert_eq!(
+            format_chunk_count(u64::from(u32::MAX) * CHUNK_BYTES),
+            Ok(u32::MAX)
+        );
+        assert_eq!(
+            format_chunk_count(u64::from(u32::MAX) * CHUNK_BYTES + 1),
+            Err(AttachmentManifestError::InvalidInput)
+        );
         assert_eq!(
             canonical_ciphertext_length(MAX_P2_PLAINTEXT_BYTES),
             Ok(26_221_256)

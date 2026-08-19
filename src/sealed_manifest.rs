@@ -12,7 +12,7 @@ use crate::key_material::RootKeyMaterial;
 const DOMAIN: &[u8; 24] = b"MOWY-SEALED-MANIFEST-V1\0";
 const SIGNED_REGION_BYTES: usize = 296;
 const INNER_BYTES: usize = 360;
-const SEALED_BYTES: usize = 408;
+pub(crate) const SEALED_BYTES: usize = 408;
 const KEY_BYTES: usize = 32;
 const SIGNATURE_BYTES: usize = 64;
 
@@ -119,11 +119,29 @@ impl SealedManifest {
 pub(crate) struct OpenedManifest {
     pub(crate) sender_device_id: CanonicalUuid,
     manifest: AttachmentManifest,
+    source_sealed: SealedManifest,
 }
 
 impl OpenedManifest {
     pub(crate) fn manifest(&self) -> &AttachmentManifest {
         &self.manifest
+    }
+
+    pub(crate) fn source_sealed(&self) -> &SealedManifest {
+        &self.source_sealed
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_fixture(
+        sender_device_id: CanonicalUuid,
+        manifest: AttachmentManifest,
+        source_sealed: SealedManifest,
+    ) -> Self {
+        Self {
+            sender_device_id,
+            manifest,
+            source_sealed,
+        }
     }
 }
 
@@ -193,6 +211,7 @@ pub(crate) fn open_manifest(
         trusted_sender,
         expected_conversation_id,
         expected_asset_id,
+        *sealed,
     );
     inner.fill(0);
     result
@@ -204,6 +223,7 @@ fn validate_opened_inner(
     trusted_sender: TrustedSender,
     expected_conversation_id: CanonicalUuid,
     expected_asset_id: CanonicalUuid,
+    source_sealed: SealedManifest,
 ) -> Result<OpenedManifest, SealedManifestError> {
     if &inner[..DOMAIN.len()] != DOMAIN {
         return Err(SealedManifestError::InvalidInput);
@@ -256,6 +276,7 @@ fn validate_opened_inner(
     Ok(OpenedManifest {
         sender_device_id,
         manifest,
+        source_sealed,
     })
 }
 
