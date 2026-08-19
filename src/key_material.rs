@@ -63,11 +63,11 @@ impl RootKeyMaterial {
         &self.0
     }
 
-    fn identity_seed(&self) -> &[u8] {
+    pub(crate) fn identity_seed(&self) -> &[u8] {
         &self.0[..KEY_BYTES]
     }
 
-    fn agreement_secret(&self) -> &[u8] {
+    pub(crate) fn agreement_secret(&self) -> &[u8] {
         &self.0[KEY_BYTES..KEY_BYTES * 2]
     }
 }
@@ -141,7 +141,7 @@ fn load_public_keys<S: ProtectedKeyStore>(store: &S) -> Result<DevicePublicKeys,
     derive_public_keys(&material)
 }
 
-fn generate() -> Result<(RootKeyMaterial, DevicePublicKeys), KeyMaterialError> {
+pub(crate) fn generate() -> Result<(RootKeyMaterial, DevicePublicKeys), KeyMaterialError> {
     ensure_init().map_err(|_| KeyMaterialError::Cryptography)?;
 
     let mut identity_seed = Zeroizing::new([0_u8; KEY_BYTES]);
