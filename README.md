@@ -1,7 +1,8 @@
 # Mowy crypto core
 
-Status: P2 implementation active; the pinned build boundary is in progress and
-no secret-bearing operation exists yet.
+Status: P2 implementation active; the pinned build boundary is implemented and
+the protected device-key slice is under review. No secret-bearing bridge
+operation exists yet.
 
 This repository is the planned public, permissively licensed native
 cryptographic core for Mowy Package P2. It will contain the byte-exact sealed
@@ -18,11 +19,12 @@ and exact application revision linkage remain P2 closeout requirements.
 
 ## Security boundary
 
-The core is intended to keep private keys, attachment keys, archive keys,
-opened manifests, and plaintext byte buffers behind a narrow native API. It is
-not yet implemented or independently reviewed, and this repository currently
-makes no confidentiality, interoperability, audit, or production-readiness
-claim.
+The core keeps private keys, attachment keys, archive keys, opened manifests,
+and plaintext byte buffers behind a narrow native API. Rust key generation and
+the platform protected-storage adapters now exist, but they are not connected
+to an application bridge and have not been independently reviewed. This
+repository currently makes no confidentiality, interoperability, audit, or
+production-readiness claim.
 
 Even after P2 implementation, this core alone will not provide:
 
@@ -52,11 +54,13 @@ use only the committed `vendor/` tree and to remain offline.
 scripts/check.sh
 ```
 
-The gate formats, lints, tests, cross-builds all four mobile targets, regenerates
-both bindings, verifies the signed libsodium source and SBOM/build-script
-inventories, checks advisories/licences/sources with cargo-deny 0.20.2, and
-performs a clean build while the operating system denies network access. See
-`supply-chain/README.md` for tool and environment details.
+The gate formats, lints, tests, cross-builds all four mobile targets, compiles
+the Keychain and Keystore adapters, regenerates both bindings, verifies the
+signed libsodium source and SBOM/build-script inventories, checks
+advisories/licences/sources with cargo-deny 0.20.2, and performs a clean build
+while the operating system denies network access. See
+`supply-chain/README.md` and `platform/README.md` for tool and environment
+details.
 
 ## Licence
 
