@@ -1,0 +1,7 @@
+[bindings.kotlin]
+package_name = "app.mowy.crypto.core"
+cdylib_name = "mowy_crypto_core"
+
+[bindings.swift]
+module_name = "MowyCryptoCore"
+cdylib_name = "mowy_crypto_core"

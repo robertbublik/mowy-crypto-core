@@ -1,7 +1,7 @@
 # Mowy crypto core
 
-Status: Approved implementation boundary; cryptographic implementation has not
-started.
+Status: P2 implementation active; the pinned build boundary is in progress and
+no secret-bearing operation exists yet.
 
 This repository is the planned public, permissively licensed native
 cryptographic core for Mowy Package P2. It will contain the byte-exact sealed
@@ -10,11 +10,11 @@ state, public disposable vectors, generated UniFFI bindings, and their tests.
 The private application repository owns product UI, account and service
 configuration, hosted delivery, and real user data.
 
-The governing design is currently maintained in the private application
-repository. Before implementation commit 1, this repository must be public and
-the throwaway mobile feasibility spike must pass. Complete public format
-documentation, vectors, dependency evidence, licences, notices, and exact
-application revision linkage are P2 closeout requirements.
+The governing design is maintained in the private application repository. The
+repository is public, private vulnerability reporting is enabled, and the
+throwaway physical-device feasibility spike passed on 2026-08-19. Complete
+public format documentation, vectors, dependency evidence, licences, notices,
+and exact application revision linkage remain P2 closeout requirements.
 
 ## Security boundary
 
@@ -42,6 +42,21 @@ keys, tokens, or meaningful recordings.
 
 Please follow [SECURITY.md](SECURITY.md). Do not disclose a suspected
 vulnerability in a public issue.
+
+## Build and validation
+
+Rust 1.97.1 and Android NDK 27.1.12297006 are required. Cargo is configured to
+use only the committed `vendor/` tree and to remain offline.
+
+```sh
+scripts/check.sh
+```
+
+The gate formats, lints, tests, cross-builds all four mobile targets, regenerates
+both bindings, verifies the signed libsodium source and SBOM/build-script
+inventories, checks advisories/licences/sources with cargo-deny 0.20.2, and
+performs a clean build while the operating system denies network access. See
+`supply-chain/README.md` for tool and environment details.
 
 ## Licence
 
