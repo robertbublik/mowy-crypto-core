@@ -41,6 +41,7 @@ lto = "thin"
 
 [lints.rust]
 unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 
 [lints.clippy]
 dbg_macro = "deny"

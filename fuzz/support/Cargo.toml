@@ -1,0 +1,26 @@
+[package]
+name = "mowy-crypto-core-fuzz-support"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+
+[dependencies]
+libsodium-rs = "=0.2.4"
+libsodium-sys-stable = "=1.24.0"
+rusqlite = { version = "=0.40.1", default-features = false, features = ["bundled"] }
+zeroize = { version = "=1.9.0", default-features = false }
+
+[lints.rust]
+unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[lints.clippy]
+dbg_macro = "deny"
+expect_used = "deny"
+panic = "deny"
+print_stderr = "deny"
+print_stdout = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"

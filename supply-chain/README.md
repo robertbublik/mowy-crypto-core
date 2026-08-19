@@ -38,6 +38,10 @@ Development tools used for this boundary:
 
 - Rust and Cargo 1.97.1;
 - UniFFI 0.31.2 from the locked dependency graph;
+- cargo-fuzz 0.13.2 with a disposable date-pinned
+  `nightly-2026-08-19` driver toolchain;
+- libfuzzer-sys 0.4.13, arbitrary 1.4.2, and jobserver 0.1.35 in the separate
+  development-only `fuzz/Cargo.lock` and shared vendor tree;
 - cargo-deny 0.20.2;
 - cargo-cyclonedx 0.5.9;
 - rsign 0.6.6.

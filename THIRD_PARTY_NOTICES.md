@@ -19,6 +19,15 @@ The direct approved dependencies are:
 | `libsqlite3-sys` | 0.38.1 | MIT; bundled SQLite is dedicated to the public domain |
 | `zeroize` | 1.9.0 | Apache-2.0 OR MIT |
 | `proptest` | 1.11.0 | Apache-2.0 OR MIT; development only |
+| `libfuzzer-sys` | 0.4.13 | `(MIT OR Apache-2.0) AND NCSA`; fuzzing only |
+| `arbitrary` | 1.4.2 | Apache-2.0 OR MIT; transitive fuzzing only |
+| `jobserver` | 0.1.35 | Apache-2.0 OR MIT; transitive fuzz build only |
+
+The fuzz-only graph is frozen separately in `fuzz/Cargo.lock` because it is
+not part of the shipped/build package represented by the production
+CycloneDX SBOM. Its committed source shares `vendor/` and is checked offline.
+The `cargo-fuzz 0.13.2` executable and nightly compiler are development tools,
+not redistributed dependencies.
 
 The transitive graph uses SPDX expressions drawn from 0BSD, Apache-2.0,
 Apache-2.0 WITH LLVM-exception, LGPL-2.1-or-later, MIT, MPL-2.0, Unicode-3.0,

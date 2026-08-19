@@ -6,6 +6,7 @@ getrandom
 getrandom-0.3.4
 httparse
 libc
+libfuzzer-sys
 libsodium-sys-stable
 libsqlite3-sys
 num-traits
