@@ -113,7 +113,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZL6PT88L5W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mowy P2 Proof";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -135,7 +134,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZL6PT88L5W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mowy P2 Proof";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

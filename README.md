@@ -5,7 +5,10 @@ includes the bounded cross-device semantic façade, durable unopened receiver
 staging, a successful iPhone-to-Huawei relay/restart proof, Linux
 AddressSanitizer fuzz evidence, and a controlled physical iOS relock with
 durable semantic recovery. The hazardous real-device fault matrix and
-independent human review remain open. This repository is not production-ready.
+independent human review remain open. The current tip also removes local
+device/signing identifiers from project-owned evidence and Xcode settings;
+already-published Git history and caches still require a separately authorized
+remediation. This repository is not production-ready.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed

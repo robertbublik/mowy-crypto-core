@@ -93,6 +93,12 @@ apps write only public receipt data to an app-private temporary/cache file and
 do not log proof results. They enforce peak growth at most 100 MiB and final
 growth at most 20 MiB.
 
+The iOS proof Xcode project intentionally commits no development-team value.
+Supply the team only through local Xcode settings or a physical-build command,
+for example `DEVELOPMENT_TEAM="$MOWY_P2_APPLE_TEAM"`, and never persist or copy
+that value into public source, logs, receipts, or evidence. Generic unsigned
+device builds omit the override.
+
 Run `scripts/check-platform-key-storage.sh` with Xcode, Android SDK 36, and
 Gradle 8.14.3. It type-checks production Swift for an iOS device, executes the
 Keychain failure tests on the macOS host, and runs the Android wrapped-blob and
@@ -104,4 +110,6 @@ container inventories, relaunches, locked-device outcomes, and cross-device
 relay are recorded in `evidence/commit-7.md`, `evidence/commit-8.md`, and
 `evidence/commit-9.md`. The controlled iOS relock, retry, cleanup, failed
 self-proof correction, and exact evidence boundary are in
-`evidence/commit-10.md`.
+`evidence/commit-10.md`. Current-tree device/signing identifier redaction and
+the local-only signing-team rule are in `evidence/commit-11.md`; it explicitly
+does not claim published-history erasure.
