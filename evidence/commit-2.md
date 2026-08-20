@@ -90,12 +90,15 @@ proof source or device fixture remains.
 
 | Device | Binary | Result |
 | --- | --- | --- |
-| Huawei COR-L29, Android 9 API 28 | API-24-façade APK SHA-256 `53cf34135526b18de329ec1be9780544a38b80588ea46e9c56679a63966aa39a`; expanded pre-façade APK SHA-256 `aa42305a64f37d55dc2f721eedaa20f4d700e28ac15c406cf5ded16f7c736905` | The façade build's unlocked round trip passed; blob was exactly 126 bytes, mode `0600`, under `noBackupFilesDir`, and atomic rewrap produced a fresh IV. It returned only `unavailable` after secure lock with valid state. The expanded predecessor, whose API-28 implementation is otherwise unchanged, rejected wrong tag, wrong AAD, truncation, missing blob, symlink, and missing alias. |
-| iPhone 14, iOS 26.6 | Signed executable SHA-256 `b6d9800bd1448bc2bcfb91c41a1c428d7669c4cc961a8b63ae0195327eb36439` | Exact 96-byte round trip, real duplicate rejection, real corrupt-length rejection, `WhenUnlockedThisDeviceOnly`, a negative synchronizing-item lookup, and protected-data recheck all passed. |
+| Huawei COR-L29, Android 9 API 28| API-24-façade APK SHA-256 `53cf34135526b18de329ec1be9780544a38b80588ea46e9c56679a63966aa39a`; expanded pre-façade APK SHA-256 `aa42305a64f37d55dc2f721eedaa20f4d700e28ac15c406cf5ded16f7c736905` | The façade build's unlocked round trip passed; blob was exactly 126 bytes, mode `0600`, under `noBackupFilesDir`, and atomic rewrap produced a fresh IV. It returned only `unavailable` after secure lock with valid state. The expanded predecessor, whose API-28 implementation is otherwise unchanged, rejected wrong tag, wrong AAD, truncation, missing blob, symlink, and missing alias. |
+| iPhone 14, iOS 26.6| Signed executable SHA-256 `b6d9800bd1448bc2bcfb91c41a1c428d7669c4cc961a8b63ae0195327eb36439` | Exact 96-byte round trip, real duplicate rejection, real corrupt-length rejection, `WhenUnlockedThisDeviceOnly`, a negative synchronizing-item lookup, and protected-data recheck all passed. |
 
-The iOS executable used automatic local development signing; concrete
-signing and device identifiers are omitted from rewritten history.
-`codesign --verify --deep --strict` passed before installation.
+The iOS executable used the expected locally installed Apple Development
+signing identity and an automatically managed device-specific development
+profile. `codesign --verify --deep --strict` passed before installation. No
+signing identity, email, certificate fingerprint, team identifier,
+provisioning-profile identifier, or device identifier is retained in durable
+public evidence.
 
 After lint removed two redundant API checks inside the already-isolated
 API-28 class, exact-final APK SHA-256

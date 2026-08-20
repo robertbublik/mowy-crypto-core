@@ -114,9 +114,13 @@ operation.
 - Rust libraries: `aarch64-apple-ios` and `aarch64-apple-ios-sim`.
 - The physical executable statically includes the Rust core: `otool -L` lists
   Apple frameworks/system libraries and SQLite but no Mowy dylib.
-- Signing: automatic local development signing; concrete signing, team,
-  profile, application-prefix, and device identifiers are omitted from
-  rewritten history.
+- Signing: automatic local development signing. The proof-app entitlements
+  contained the expected development application identifier and
+  `get-task-allow=true`; the build selected the expected locally installed
+  Apple Development identity. Signing identity, email, certificate fingerprint,
+  team identifier, provisioning-profile identifier, team-prefixed application
+  identifier, and device identifiers are intentionally omitted from public
+  evidence.
 - Storage root: Application Support
   `app.mowy.prototype.p2/proof-v1`; fixed children and files receive modes
   `0700`/`0600`, `NSFileProtectionComplete`, and backup exclusion.
