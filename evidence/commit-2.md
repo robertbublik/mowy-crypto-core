@@ -123,6 +123,23 @@ integrated revision.
 | Android 15+ defect-fixed behavior | No matching physical device is available | Explicitly unavailable; API/version branch remains provider-defined and fail-closed |
 | Physical iOS locked/mid-operation transition | No device automation can safely create the transition; deterministic fake-backend cases execute both paths | Physical case remains for the integrated proof; production item class is physically verified |
 
+### Subsequent commit-13 disposition
+
+The Android 12-through-14 row above accurately records the evidence available
+at commit 2 and its then-open P2-closeout requirement; that historical result
+is not rewritten as a pass. During the later closeout review, no disposable API
+31-through-34 device or system image was available, and changing a personal
+device's secure-lock configuration remained outside the authorized safety
+boundary. The maintainer therefore accepts this cell as **not run — unavailable
+for fixture-only P2**, with the implemented stable `unavailable` behavior, no
+fallback, and no automatic replacement preserved.
+
+This later disposition supersedes only the timing of the original closeout
+requirement. Android 12-through-14 secure-lock removal and
+credential/strong/weak biometric or shared-profile behavior remain unproved
+and are carried to P8 and independent human review before real recordings,
+product integration, or an encryption claim.
+
 ## Negative inspection and remaining boundary
 
 - No private key, archive key, plaintext buffer, key import/export, caller

@@ -40,3 +40,18 @@ Status: Implemented agent review; not independent cryptographic assurance.
 C2-08 and C2-09 are carried honestly. C2-07 is the deliberate commit boundary,
 not evidence that native integration is complete. Independent implementation
 review remains mandatory before any real recording.
+
+## Subsequent commit-13 disposition
+
+C2-08 was correctly open when this commit-level review was recorded. Commit 13
+does not recast the missing Android 12-through-14 matrix as executed or passed.
+Because the available phones are personal devices, no secure-lock removal or
+unsupported credential/profile mutation was authorized merely to close an
+evidence cell. The maintainer later accepted **not run — unavailable for
+fixture-only P2** while retaining the fail-closed policy, no fallback, and no
+automatic key replacement.
+
+C2-08 remains a P8 and independent-review input before real recordings or
+product use. A future supported disposable-device or accurately labelled
+emulator run may add evidence, but cannot be inferred from the Android 9
+physical result recorded here.

@@ -24,3 +24,26 @@ reviewed and built without a committed personal signing-team value, but the
 already-published history limitation remains open. A history rewrite, force
 update, cache-removal request, or downstream notification is outside this
 append-only correction and requires explicit maintainer authorization.
+
+## Subsequent commit-13 review note
+
+That authorization was later granted for a strictly bounded public-core
+rewrite, and a replacement history is now prepared locally. The original
+C11-01 conclusion remains historically accurate: branch-tip redaction alone
+did not erase published objects. Commit 13 separately records the replacement
+map and limits the repository-controlled operation to the public core's
+`main`, package-foundation, and implementation branches.
+
+Public-core PR #1 and closed draft PR #2 are the affected pull requests.
+GitHub owns their internal references and cached views, so their dereference is
+a Support operation after the three branches are updated; it is not evidence
+that can be manufactured by a local or branch force-push. Private application
+PR #7 is not rewritten and needs only replacement-hash links. The inventory
+found no forks, releases, Actions artifacts, or Actions caches, but it cannot
+exclude independent clones or GitHub object caches.
+
+All rewritten commit identifiers are new. Any old commit/tag signature or
+attestation is invalid for a replacement object, and old checks, approvals,
+comments, or links must not be presented as validation of the new history.
+Final status remains pending the force-updates, GitHub Support action,
+fresh-clone/category validation, and exact remote evidence.

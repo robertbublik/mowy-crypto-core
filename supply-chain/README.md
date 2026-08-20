@@ -8,6 +8,16 @@ Cargo source. The repository configuration replaces crates.io with that tree
 and sets Cargo offline. Cargo verifies each vendored crate against its generated
 `.cargo-checksum.json` during every build.
 
+The repository ignores only the root Rust output trees (`/target/` and
+`/fuzz/target/`) and root proof artifacts (`/artifacts/`). The anchors are
+security-relevant: an unanchored `target/` pattern once hid the upstream
+`vendor/cc/src/target/` source directory from Git even though the crate
+checksum manifest required it. Commit-13 closeout restored the four affected
+files byte-for-byte against their existing pinned SHA-256 values and audited
+all 7,693 checksum-listed vendored files. Cargo verifies bytes present in a
+checkout; the final fresh-clone gate additionally proves that Git carries the
+files rather than merely finding ignored local copies.
+
 `bom.cdx.json` is the CycloneDX 1.5 machine-readable shipped/build package and
 licence inventory generated with `cargo-cyclonedx 0.5.9`, all features, all
 targets, and `SOURCE_DATE_EPOCH=1787097600`; dev-only packages remain in
@@ -56,6 +66,14 @@ runtime dependency graph or its CycloneDX SBOM.
 
 The committed SBOM has no component without a licence expression. The
 human-readable shipped-source notices are in `THIRD_PARTY_NOTICES.md`.
+
+The cargo-deny gate evaluates advisories, bans, licences, and sources against
+the exact locked graph. Because Cargo replaces the registry with the vendored
+tree, a local run can lack registry-index entries needed for a current yank
+query. An `index-failure` warning therefore does not invalidate the four
+reported policy-category results, but it also does not prove that every locked
+release is currently non-yanked. A reviewer who requires that separate result
+must first populate a trusted current index and record the resulting check.
 
 The duplicate-version check denies additions except five reviewed legacy
 branches forced by the exact approved graph: `hashbrown 0.16.1` from

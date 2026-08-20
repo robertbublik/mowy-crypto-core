@@ -1,11 +1,13 @@
 # Platform protected-key adapters
 
-Status: Protected storage and the bounded semantic development bridge are
-implemented. Physical single-device lifecycle evidence passes on both named
-devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup journey
-passes. A controlled physical iOS relock before plaintext promotion also fails
-closed and recovers through the same opaque operation after unlock. The
-hazardous physical fault matrix and independent human review remain open.
+Status: Protected storage and the bounded semantic development bridge are a P2
+closeout candidate. Physical single-device lifecycle evidence passes on both
+named devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup
+journey passes. A controlled physical iOS relock before plaintext promotion
+also fails closed and recovers through the same opaque operation after unlock.
+The hazardous personal-device cases have the not-run safety disposition below;
+the local history rewrite, final remote validation, and independent human
+review remain incomplete. This is not production-readiness evidence.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -86,6 +88,34 @@ an installation marker, and the operation database. iOS applies mode `0700` or
 `allowBackup=false` and `fullBackupContent=false`. Rust validates canonical,
 non-linked directories and regular files again before use.
 
+## Physical-fault and compatibility disposition
+
+The iPhone and Huawei used for the bounded proofs are personal devices. No test
+filled their storage, forced a real platform rename failure, changed the
+Huawei's secure-lock configuration, or killed the process at every sync,
+rename, SQLite-commit, and cleanup transition. Those cells are **not run —
+accepted for personal-device safety** for the fixture-only P2 closeout. They
+are not physical passes and must not be inferred from normal atomic-write,
+force-stop, relaunch, or relock evidence.
+
+Host tests cover an envelope-writer `StorageFull` error, short I/O, destination
+conflict, reconstructed rename/relaunch states, transaction trigger rollback,
+and exact successful cleanup. They do not inject actual file or directory sync
+failures, each production rename failure, SQLite commit-time storage failure,
+or every process-death cut. The Rust tests also do not inject faults into the
+Android Keystore blob's file sync/atomic move/directory sync, the proof
+namespace setup, or the iOS Keychain and companion-file boundaries.
+
+Android 12 through 14 secure-lock removal and credential/strong/weak biometric
+or shared-profile behavior was unavailable in the approved device set. The
+implementation retains the fail-closed `unavailable` result with no fallback
+or automatic key replacement. Actual mobile low-storage/rename timing, that
+Android compatibility matrix, and the full per-transition kill matrix are
+carried to P8 and independent human review before real recordings or product
+use. Any later execution must use factory-reset disposable hardware or an
+isolated, revertible emulator/simulator and must label emulator evidence as
+such.
+
 `platform/android/proof-app` and `platform/ios/proof-app` are development-only
 native applications. Each runs one warmup maximum fixture, establishes a
 settled resident-memory baseline, then runs one to ten exact 25 MiB cycles. The
@@ -112,4 +142,6 @@ relay are recorded in `evidence/commit-7.md`, `evidence/commit-8.md`, and
 self-proof correction, and exact evidence boundary are in
 `evidence/commit-10.md`. Current-tree device/signing identifier redaction and
 the local-only signing-team rule are in `evidence/commit-11.md`; it explicitly
-does not claim published-history erasure.
+does not claim published-history erasure. The commit-13 candidate records the
+subsequent local rewrite, exact coverage correction, safety disposition, and
+pending GitHub-owned cleanup in `evidence/commit-13.md`.

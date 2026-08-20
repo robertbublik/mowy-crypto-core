@@ -1,14 +1,16 @@
 # Mowy crypto core
 
-Status: P2 implementation active through commit 12. The package branch now
-includes the bounded cross-device semantic façade, durable unopened receiver
-staging, a successful iPhone-to-Huawei relay/restart proof, Linux
-AddressSanitizer fuzz evidence, and a controlled physical iOS relock with
-durable semantic recovery. The hazardous real-device fault matrix and
-independent human review remain open. The current tip also removes local
-device/signing identifiers from project-owned evidence and Xcode settings;
-already-published Git history and caches still require a separately authorized
-remediation. This repository is not production-ready.
+Status: P2 closeout candidate after implementation through rewritten commit
+12. The package branch includes the bounded cross-device semantic façade,
+durable unopened receiver staging, a successful iPhone-to-Huawei
+relay/restart proof, Linux AddressSanitizer fuzz evidence, and a controlled
+physical iOS relock with durable semantic recovery. The hazardous personal-
+device fault cases now have a reviewed not-run safety disposition, with the
+unproved platform behavior retained below. A maintainer-authorized history
+rewrite has been prepared locally, but the public branch updates, GitHub-owned
+pull-request/cache dereference, fresh-clone validation, and final remote
+evidence are not complete. Independent human review remains open. P2 is not
+yet final or production-ready.
 
 After the commit-10 physical evidence was inspected, the exact development
 proof app and its private container were removed from the iPhone and absence
@@ -17,6 +19,14 @@ app's reviewed private-container-only storage layout, that final
 disposable-run cleanup removed the retained encrypted receiver archive and
 proof database without targeting the product app or unrelated user data. See
 `evidence/commit-12.md`.
+
+The commit-13 closeout candidate also restores four checksum-pinned upstream
+`cc` source files that an unanchored build-output ignore had omitted from clean
+clones. It records that reproducibility repair, the exact rewritten commit map,
+history-remediation boundary, fault-evidence limits, and retained review work
+in `evidence/commit-13.md` and `reviews/commit-13-hostile-review.md`. It must not
+be read as final history erasure or final P2 status while its named remote
+steps remain pending.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed
@@ -33,6 +43,32 @@ traceability, governance gates, residual-risk acceptance, and the handoff to
 later product integration. Low-level implementation truth is deliberately kept
 here so a reviewer can reproduce it without access to service credentials or
 product data.
+
+## Closeout fault disposition
+
+The connected iPhone and Huawei are personal devices. P2 therefore did not
+fill either device to a real `ENOSPC` condition, race a real platform rename,
+or kill the process at every file-sync, rename, SQLite-commit, and cleanup
+boundary. Those cases are recorded as **not run — accepted for personal-device
+safety**, not as passing physical evidence. Repeating them requires a
+factory-reset disposable device or isolated, revertible emulator/simulator
+environment with no account or user data.
+
+Current host coverage is narrower than an exact storage-fault matrix. It
+includes a deterministic short/disk-full writer at the envelope layer,
+destination-conflict and reconstructed rename/relaunch states, SQLite
+trigger-abort rollback tests, exact cleanup tests, and bounded child-state or
+physical relaunch cases. It does not inject actual filesystem exhaustion,
+file/directory-sync failure, direct failure of each production rename, SQLite
+commit-time I/O failure, or process death around every transition. The earlier
+wording that called these exact production host adapters is corrected by the
+commit-13 evidence; it is not converted into a pass.
+
+Actual APFS/Android-filesystem low-storage and rename timing, mobile
+Keychain/Keystore and companion-file fault behavior, Android 12 through 14
+secure-lock and biometric/profile behavior, and the full per-transition kill
+matrix remain P8 and independent-review inputs before real recordings or a
+product encryption claim.
 
 ## Security boundary
 
@@ -100,15 +136,35 @@ See `fuzz/README.md` for the date-pinned nightly driver, bounds, current Apple
 AddressSanitizer linker limitation, and the distinction between a passing
 coverage-guided run and sanitizer evidence.
 
+## History-remediation boundary
+
+The sanitized history is currently a local candidate. Repository-controlled
+remediation is limited to force-updating the public core's `main`,
+`package/026-p2-sealed-envelope-foundation`, and
+`package/026-p2-sealed-envelope-foundation-implementation` branches after the
+candidate gate passes. Public-core PR #1 and the closed draft PR #2 reference
+changed history; their GitHub-owned references and cached views cannot be
+removed by a branch push and still require GitHub Support. Private application
+PR #7 is not being history-rewritten; only its body and documentation must be
+updated to the replacement hashes.
+
+The remote inventory found no forks, releases, Actions artifacts, or Actions
+caches. That does not prove absence from independent clones or GitHub's
+pull-request/object caches. Old object IDs and any signatures, attestations,
+checks, or links bound to them do not transfer to the rewritten commits. See
+`evidence/commit-13.md` for the exact map and pending completion checks.
+
 ## Repository and temporary paths
 
-All durable source, generated bindings, vectors, reviews, and evidence live in
-this checkout. `/private/tmp` was used only for disposable Rust toolchains,
-Cargo tools, derived build products, mutable fuzz corpora, and copies of public
-proof receipts. It kept host-global tooling and generated artifacts out of the
-repository and never served as the source checkout. The durable repository path
-used for this work is the normal workspace checkout named
-`mowy-crypto-core/`, outside `/private/tmp`.
+The commit-1-through-12 implementation used the durable normal workspace
+checkout named `mowy-crypto-core/`, outside `/private/tmp`. Its temporary paths
+held only disposable toolchains, tools, derived products, mutable fuzz corpora,
+and copies of public proof receipts. The authorized commit-13 history rewrite
+is deliberately different: it uses an isolated disposable checkout under
+`/private/tmp` so destructive graph reconstruction cannot mutate the durable
+workspace checkout. That isolated checkout is a local remediation candidate,
+not the durable or remote source of truth, and must be removed after the
+rewritten remote and fresh clone are validated.
 
 ## Licence
 

@@ -1,6 +1,7 @@
 .DS_Store
-target/
-artifacts/
+/target/
+/fuzz/target/
+/artifacts/
 platform/android/.gradle/
 platform/android/**/build/
 platform/ios/.build/

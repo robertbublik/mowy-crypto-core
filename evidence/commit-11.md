@@ -65,3 +65,30 @@ published branch, coordinating cache removal, and notifying downstream users
 are destructive/external actions and require explicit maintainer authorization
 and a reviewed execution plan. Until then, the PR and handoff must state this
 limitation and must not describe the public evidence history as clean.
+
+## Subsequent commit-13 remediation state
+
+The maintainer subsequently authorized the bounded rewrite, and a replacement
+history has been prepared locally. The rewrite is deliberately limited to the
+public core history reachable from `main`,
+`package/026-p2-sealed-envelope-foundation`, and
+`package/026-p2-sealed-envelope-foundation-implementation`: it normalizes the
+project author's and committer's public Git metadata, applies the commit-11
+identifier/team-setting redactions at their original historical locations, and
+updates only the evidence baseline hashes made stale by the rewrite. It changes
+no Rust, Swift, Kotlin, UDL, generated binding, vector, dependency, build
+policy, or cryptographic behavior.
+
+This is not yet remote erasure. The three repository-controlled branches have
+not yet been replaced and freshly validated at their final remote heads.
+Public-core PR #1 and closed draft PR #2 retain GitHub-owned references or
+cached views that a force-push cannot remove; GitHub Support must dereference
+those PRs and remove eligible cached views after the branch update. Private
+application PR #7 is not part of the history rewrite and requires only updated
+body/documentation links to the replacement hashes.
+
+The remote inventory found no forks, releases, Actions artifacts, or Actions
+caches. Independent clones and GitHub object/PR caches remain outside that
+observation. Rewritten object IDs do not inherit signatures, attestations,
+checks, approvals, or links attached to the old IDs. The exact replacement map
+and pending completion evidence are recorded in `evidence/commit-13.md`.

@@ -7,7 +7,7 @@ mowy_bom="$mowy_repo_root/supply-chain/bom.cdx.json"
 mowy_cyclonedx_bin=${MOWY_CARGO_CYCLONEDX_BIN:-cargo-cyclonedx}
 mowy_generated_bom="$mowy_repo_root/mowy-crypto-core-check.json"
 mowy_raw_bom="$mowy_repo_root/mowy-crypto-core-check.raw.json"
-mowy_root_ref="path+file://$mowy_repo_root#0.1.0"
+mowy_root_ref="path+file://$mowy_repo_root#mowy-crypto-core@0.1.0"
 mowy_stable_ref='pkg:cargo/mowy-crypto-core@0.1.0'
 
 cleanup_mowy_generated_bom() {
