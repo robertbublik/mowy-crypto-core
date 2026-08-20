@@ -1705,6 +1705,8 @@ mod tests {
     struct TestStoreInner {
         root: PathBuf,
         available: AtomicBool,
+        protected_checks: AtomicU64,
+        unavailable_on_check: AtomicU64,
         material: Mutex<Option<Zeroizing<[u8; ROOT_KEY_MATERIAL_BYTES]>>>,
         load_session: Mutex<Option<(u64, Zeroizing<[u8; ROOT_KEY_MATERIAL_BYTES]>)>>,
         next_token: AtomicU64,
@@ -1719,6 +1721,8 @@ mod tests {
                 inner: Arc::new(TestStoreInner {
                     root,
                     available: AtomicBool::new(true),
+                    protected_checks: AtomicU64::new(0),
+                    unavailable_on_check: AtomicU64::new(0),
                     material: Mutex::new(None),
                     load_session: Mutex::new(None),
                     next_token: AtomicU64::new(1),
@@ -1734,10 +1738,28 @@ mod tests {
             response_path(self.prepare_namespaces())?;
             response_unit(self.commit_companions())
         }
+
+        fn relock_on_protected_check(&self, check: u64) {
+            self.inner.protected_checks.store(0, Ordering::SeqCst);
+            self.inner
+                .unavailable_on_check
+                .store(check, Ordering::SeqCst);
+            self.inner.available.store(true, Ordering::SeqCst);
+        }
+
+        fn unlock(&self) {
+            self.inner.available.store(true, Ordering::SeqCst);
+            self.inner.unavailable_on_check.store(0, Ordering::SeqCst);
+            self.inner.protected_checks.store(0, Ordering::SeqCst);
+        }
     }
 
     impl NativeProtectedKeyStore for TestStore {
         fn protected_data_available(&self) -> NativeBridgeResponse {
+            let check = self.inner.protected_checks.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.inner.unavailable_on_check.load(Ordering::SeqCst) == check {
+                self.inner.available.store(false, Ordering::SeqCst);
+            }
             NativeBridgeResponse {
                 flag: self.inner.available.load(Ordering::SeqCst),
                 ..success_response()
@@ -2054,6 +2076,151 @@ mod tests {
         assert_eq!(first, relaunched);
         assert_eq!(first.plaintext_length, 70_000);
         assert_eq!(first.ciphertext_sha256, transfer.ciphertext_sha256);
+
+        cleanup_development_receiver_inner(Box::new(receiver.clone()), now + 5, transfer.clone())?;
+        cleanup_development_sender_inner(Box::new(sender.clone()), now + 5, transfer)?;
+        {
+            let sender_repository =
+                OperationRepository::open(&sender.inner.root.join(PROOF_DATABASE_NAME))
+                    .map_err(map_repository_error)?;
+            assert!(
+                sender_repository
+                    .load_sender_outbox(parsed.sender_operation_id)
+                    .map_err(map_repository_error)?
+                    .is_none()
+            );
+            let receiver_repository =
+                OperationRepository::open(&receiver.inner.root.join(PROOF_DATABASE_NAME))
+                    .map_err(map_repository_error)?;
+            assert!(
+                receiver_repository
+                    .load_development_transfer(parsed.receiver_operation_id)
+                    .map_err(map_repository_error)?
+                    .is_none()
+            );
+            assert!(
+                receiver_repository
+                    .receiver_state(parsed.receiver_operation_id)
+                    .map_err(map_repository_error)?
+                    .is_none()
+            );
+        }
+        for store in [&sender, &receiver] {
+            for name in [
+                "source",
+                "ciphertext",
+                "receive-temp",
+                "verified",
+                "archive",
+            ] {
+                assert_eq!(
+                    std::fs::read_dir(store.inner.root.join(name))
+                        .map_err(|_| MowyCoreError::Storage)?
+                        .count(),
+                    0
+                );
+            }
+        }
+        sender.cleanup()?;
+        receiver.cleanup()
+    }
+
+    #[test]
+    fn semantic_receiver_relock_retries_by_opaque_operation_and_cleans_exactly()
+    -> Result<(), MowyCoreError> {
+        let _test_guard = BRIDGE_TEST_LOCK
+            .lock()
+            .map_err(|_| MowyCoreError::Storage)?;
+        let sender = TestStore::new("relock-sender");
+        let receiver = TestStore::new("relock-receiver");
+        let now = 1_780_000_000;
+        let sender_bundle = publish_development_bundle_inner(Box::new(sender.clone()), now)?;
+        let receiver_bundle = publish_development_bundle_inner(Box::new(receiver.clone()), now)?;
+        let (transfer, source_path) = prepare_development_transfer_inner(
+            Box::new(sender.clone()),
+            Box::new(NeverCancel),
+            now,
+            70_000,
+            receiver_bundle,
+        )?;
+        let destination_path = stage_development_transfer_inner(
+            Box::new(receiver.clone()),
+            now + 1,
+            sender_bundle,
+            transfer.clone(),
+        )?;
+        std::fs::copy(&source_path, &destination_path).map_err(|_| MowyCoreError::Storage)?;
+        std::fs::set_permissions(&destination_path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|_| MowyCoreError::Storage)?;
+
+        // In semantic resume, callback eight follows authenticated decryption
+        // and sync but precedes plaintext promotion. The durable operation ID
+        // must therefore recover the exact transfer after unlock.
+        receiver.relock_on_protected_check(8);
+        let unavailable = resume_development_transfer(
+            Box::new(receiver.clone()),
+            Box::new(NeverCancel),
+            now + 2,
+            transfer.receiver_operation_id.clone(),
+        );
+        assert_eq!(unavailable.code, MowyCoreCode::Unavailable);
+        assert_eq!(unavailable.receipt, None);
+        let parsed = decode_development_transfer(&transfer)?;
+        {
+            let repository =
+                OperationRepository::open(&receiver.inner.root.join(PROOF_DATABASE_NAME))
+                    .map_err(map_repository_error)?;
+            let retained = repository
+                .load_development_transfer(parsed.receiver_operation_id)
+                .map_err(map_repository_error)?
+                .ok_or(MowyCoreError::Storage)?;
+            assert_eq!(retained.state, DevelopmentTransferState::Promoted);
+            assert_eq!(retained.sealed, None);
+            assert_eq!(
+                repository
+                    .receiver_state(parsed.receiver_operation_id)
+                    .map_err(map_repository_error)?,
+                Some(ReceiverState::WaitingForCiphertext)
+            );
+        }
+        let files = PrivateFileStore::open(&receiver.inner.root).map_err(map_file_error)?;
+        assert_eq!(
+            files
+                .verified_plaintext_state(parsed.asset_id)
+                .map_err(map_file_error)?,
+            crate::private_files::VerifiedPlaintextState::Missing
+        );
+        assert!(Path::new(&destination_path).is_file());
+        assert!(!files.archive_path(parsed.asset_id).exists());
+        for (name, expected) in [
+            ("source", 0),
+            ("ciphertext", 1),
+            ("receive-temp", 0),
+            ("verified", 0),
+            ("archive", 0),
+        ] {
+            assert_eq!(
+                std::fs::read_dir(receiver.inner.root.join(name))
+                    .map_err(|_| MowyCoreError::Storage)?
+                    .count(),
+                expected
+            );
+        }
+
+        receiver.unlock();
+        let resumed = resume_development_transfer_inner(
+            Box::new(receiver.clone()),
+            Box::new(NeverCancel),
+            now + 3,
+            &transfer.receiver_operation_id,
+        )?;
+        let repeated = resume_development_transfer_inner(
+            Box::new(receiver.clone()),
+            Box::new(NeverCancel),
+            now + 4,
+            &transfer.receiver_operation_id,
+        )?;
+        assert_eq!(resumed, repeated);
 
         cleanup_development_receiver_inner(Box::new(receiver.clone()), now + 5, transfer.clone())?;
         cleanup_development_sender_inner(Box::new(sender.clone()), now + 5, transfer)?;
