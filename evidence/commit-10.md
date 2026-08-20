@@ -179,9 +179,11 @@ was deleted through a narrowly scoped disposable build, then that temporary
 app was uninstalled. The temporary cleanup mode and Security import were
 removed before the reviewed source state; neither is part of this commit.
 
-The receiver archive is intentionally retained in the main disposable proof
-app as the successful terminal state. It is an encrypted archive of the public
-fixture, not plaintext or transport material.
+The receiver archive was retained temporarily in the main disposable proof
+app as the successful terminal state while the evidence and handoff were
+inspected. It was an encrypted archive of the public fixture, not plaintext or
+transport material. Commit 12 records the subsequent exact removal of that
+development app/container and the verified absence of the disposable output.
 
 ## Exploratory self-proof result and correction
 
