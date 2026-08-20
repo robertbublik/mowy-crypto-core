@@ -3,7 +3,9 @@
 Status: Protected storage and the bounded semantic development bridge are
 implemented. Physical single-device lifecycle evidence passes on both named
 devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup journey
-passes. Physical iOS mid-operation relock remains open.
+passes. A controlled physical iOS relock before plaintext promotion also fails
+closed and recovers through the same opaque operation after unlock. The
+hazardous physical fault matrix and independent human review remain open.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -51,6 +53,24 @@ The development proof apps accept these modes:
 | `resume` | opaque receiver operation ID | public length/digest receipt after authenticate, decrypt, archive, verify, and transport erasure |
 | `cleanup-sender` | exact opaque/public transfer | coarse success after exact generated sender files and durable row are removed |
 
+The iOS proof app additionally accepts development-only
+`resume-relock-probe`. It wraps ordinary `resume` and pauses at the protected
+availability check after authenticated decryption/sync but before plaintext
+promotion so a maintainer can physically lock the device. This callback
+position is valid only for a freshly staged, never-resumed operation; a valid
+run must also prove the ciphertext-only prelaunch/locked inventories, unlock
+recovery, and idempotent repeat. The coarse verdict alone is insufficient.
+
+Its separate private temporary verdict is mode `0600`, readable while locked,
+and contains only the fixed mode, coarse code, receipt presence, and
+checkpoint/lock/result booleans. Each process launch removes and recreates the
+exact file before core work, handles every write/sync failure as a failed run,
+and forces unavailable on timeout or background-task expiry. The operator must
+terminate the prior process and observe the same run's
+`LOCK_DEVICE_NOW`-to-final transition. Every core artifact retains
+`NSFileProtectionComplete`; the production adapter and generated ABI are
+unchanged.
+
 iOS supplies `--mode`, `--bundle`, `--transfer`, `--operation`, and `--length`
 arguments. Android uses intent extras with the same names. The apps serialize
 public fields with `|` only as proof-runner plumbing; UniFFI records are the ABI,
@@ -82,4 +102,6 @@ JNA 5.19.1 AAR; it is bridge plumbing and not another cryptographic provider.
 The complete physical commands, signing/linkage checks, memory results,
 container inventories, relaunches, locked-device outcomes, and cross-device
 relay are recorded in `evidence/commit-7.md`, `evidence/commit-8.md`, and
-`evidence/commit-9.md`.
+`evidence/commit-9.md`. The controlled iOS relock, retry, cleanup, failed
+self-proof correction, and exact evidence boundary are in
+`evidence/commit-10.md`.

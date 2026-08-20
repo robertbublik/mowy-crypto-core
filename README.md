@@ -1,11 +1,11 @@
 # Mowy crypto core
 
-Status: P2 implementation active. The package branch now includes the bounded
-cross-device semantic façade, durable unopened receiver staging, a successful
-iPhone-to-Huawei relay/restart proof, and Linux AddressSanitizer fuzz evidence
-in addition to commits 1 through 8. Physical iOS mid-operation relock, the
-hazardous real-device fault matrix, and independent human review remain open.
-This repository is not production-ready.
+Status: P2 implementation active through commit 10. The package branch now
+includes the bounded cross-device semantic façade, durable unopened receiver
+staging, a successful iPhone-to-Huawei relay/restart proof, Linux
+AddressSanitizer fuzz evidence, and a controlled physical iOS relock with
+durable semantic recovery. The hazardous real-device fault matrix and
+independent human review remain open. This repository is not production-ready.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed

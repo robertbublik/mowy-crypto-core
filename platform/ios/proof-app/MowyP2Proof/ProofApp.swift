@@ -44,8 +44,17 @@ final class ProofViewController: UIViewController {
         guard !started else { return }
         started = true
         if let mode = argument("--mode") {
+            if mode == "resume-relock-probe", !prepareRelockProbeReceipt() {
+                publishToScreen("Mowy P2 relock probe: RECEIPT_PREPARATION_FAILED")
+                return
+            }
             DispatchQueue.global(qos: .userInitiated).async { [cancellation] in
-                self.publish(self.runDevelopmentCommand(mode: mode, cancellation: cancellation))
+                let result = self.runDevelopmentCommand(mode: mode, cancellation: cancellation)
+                if mode == "resume-relock-probe" {
+                    _ = self.publishRelockProbe(result)
+                } else {
+                    self.publish(result)
+                }
             }
             return
         }
@@ -143,6 +152,38 @@ final class ProofViewController: UIViewController {
     ) -> String {
         let now = UInt64(Date().timeIntervalSince1970)
         switch mode {
+        case "resume-relock-probe":
+            guard let operationId = argument("--operation") else {
+                return "Mowy P2 relock probe: INVALID_INPUT"
+            }
+            let store = MowyRelockProbeProtectedKeyStore(protectedCheck: 8) { [weak self] in
+                self?.publishRelockProbe(
+                    [
+                        "Mowy P2 relock probe: LOCK_DEVICE_NOW",
+                        "mode=resume-relock-probe",
+                        "checkpoint_reached=true",
+                    ].joined(separator: "\n")
+                ) ?? false
+            }
+            let result = resumeDevelopmentTransfer(
+                protectedStore: store,
+                cancellation: cancellation,
+                now: now,
+                receiverOperationId: operationId
+            )
+            let expectedFailClosed = store.checkpointReached &&
+                store.lockObserved &&
+                result.code == .unavailable &&
+                result.receipt == nil
+            return [
+                "Mowy P2 relock probe: \(expectedFailClosed ? "SUCCESS" : "FAILED")",
+                "mode=resume-relock-probe",
+                "checkpoint_reached=\(store.checkpointReached)",
+                "lock_observed=\(store.lockObserved)",
+                "core_code=\(codeName(result.code))",
+                "receipt_present=\(result.receipt != nil)",
+                "expected_fail_closed=\(expectedFailClosed)",
+            ].joined(separator: "\n")
         case "publish":
             let result = MowyDevelopmentProofRunner.publish(now: now)
             guard result.code == .success, let bundle = result.bundle else {
@@ -247,9 +288,216 @@ final class ProofViewController: UIViewController {
         let resultURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("mowy-p2-proof-result.txt")
         try? text.write(to: resultURL, atomically: true, encoding: .utf8)
+        publishToScreen(text)
+    }
+
+    // This file contains only the probe verdict and booleans. Keeping that
+    // coarse receipt readable while locked lets the harness observe a
+    // fail-closed result without weakening protection on any core artifact.
+    private func prepareRelockProbeReceipt() -> Bool {
+        let fileManager = FileManager.default
+        let resultURL = fileManager.temporaryDirectory
+            .appendingPathComponent("mowy-p2-relock-result.txt")
+        do {
+            if fileManager.fileExists(atPath: resultURL.path) {
+                try fileManager.removeItem(at: resultURL)
+            }
+            guard fileManager.createFile(
+                atPath: resultURL.path,
+                contents: nil,
+                attributes: [
+                    .posixPermissions: 0o600,
+                    .protectionKey: FileProtectionType.none,
+                ]
+            ) else {
+                return false
+            }
+            try fileManager.setAttributes(
+                [
+                    .posixPermissions: 0o600,
+                    .protectionKey: FileProtectionType.none,
+                ],
+                ofItemAtPath: resultURL.path
+            )
+            return true
+        } catch {
+            try? fileManager.removeItem(at: resultURL)
+            return false
+        }
+    }
+
+    @discardableResult
+    private func publishRelockProbe(_ text: String) -> Bool {
+        let fileManager = FileManager.default
+        let resultURL = fileManager.temporaryDirectory
+            .appendingPathComponent("mowy-p2-relock-result.txt")
+        guard let data = text.data(using: .utf8),
+              fileManager.fileExists(atPath: resultURL.path) else {
+            publishToScreen("Mowy P2 relock probe: RECEIPT_WRITE_FAILED")
+            return false
+        }
+        do {
+            let handle = try FileHandle(forWritingTo: resultURL)
+            defer { try? handle.close() }
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+        } catch {
+            try? fileManager.removeItem(at: resultURL)
+            publishToScreen("Mowy P2 relock probe: RECEIPT_WRITE_FAILED")
+            return false
+        }
+        publishToScreen(text)
+        return true
+    }
+
+    private func publishToScreen(_ text: String) {
         DispatchQueue.main.async { [weak self] in
             self?.resultLabel.text = text
         }
+    }
+}
+
+// Development-only physical probe. For one freshly staged receiver, callback
+// eight follows authenticated decryption and sync but precedes plaintext
+// promotion. Holding that boundary lets a real device relock while durable
+// receiver state can retry by opaque operation ID; the production adapter and
+// ABI stay unchanged.
+private final class MowyRelockProbeProtectedKeyStore: NativeProtectedKeyStore, @unchecked Sendable {
+    private let store = MowyNativeProtectedKeyStore()
+    private let protectedCheck: Int
+    private let onCheckpoint: () -> Bool
+    private let stateLock = NSLock()
+    private var protectedChecks = 0
+    private var didReachCheckpoint = false
+    private var didObserveLock = false
+    private var didExpireBackgroundTask = false
+
+    init(protectedCheck: Int, onCheckpoint: @escaping () -> Bool) {
+        self.protectedCheck = protectedCheck
+        self.onCheckpoint = onCheckpoint
+    }
+
+    var checkpointReached: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return didReachCheckpoint
+    }
+
+    var lockObserved: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return didObserveLock
+    }
+
+    func protectedDataAvailable() -> NativeBridgeResponse {
+        stateLock.lock()
+        protectedChecks += 1
+        let shouldWait = protectedChecks == protectedCheck
+        if shouldWait {
+            didReachCheckpoint = true
+        }
+        stateLock.unlock()
+
+        if shouldWait {
+            if waitForPhysicalRelock() {
+                return NativeBridgeResponse(
+                    code: .success,
+                    flag: false,
+                    number: 0,
+                    keyState: .absent,
+                    path: ""
+                )
+            }
+        }
+        return store.protectedDataAvailable()
+    }
+
+    // Returns true when the probe must force an unavailable result because its
+    // evidence checkpoint could not be observed safely.
+    private func waitForPhysicalRelock() -> Bool {
+        let application = UIApplication.shared
+        let backgroundTask = application.beginBackgroundTask(
+            withName: "MowyP2RelockProbe"
+        ) { [weak self] in
+            self?.markBackgroundTaskExpired()
+        }
+        defer {
+            if backgroundTask != .invalid {
+                application.endBackgroundTask(backgroundTask)
+            }
+        }
+        guard onCheckpoint(), backgroundTask != .invalid else { return true }
+
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline {
+            if !application.isProtectedDataAvailable {
+                stateLock.lock()
+                didObserveLock = true
+                stateLock.unlock()
+                return false
+            }
+            stateLock.lock()
+            let expired = didExpireBackgroundTask
+            stateLock.unlock()
+            if expired || application.backgroundTimeRemaining <= 2 {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return true
+    }
+
+    private func markBackgroundTaskExpired() {
+        stateLock.lock()
+        didExpireBackgroundTask = true
+        stateLock.unlock()
+    }
+
+    func keyState() -> NativeBridgeResponse { store.keyState() }
+    func installationMarkerExists() -> NativeBridgeResponse { store.installationMarkerExists() }
+    func databaseExists() -> NativeBridgeResponse { store.databaseExists() }
+    func prepareNamespaces() -> NativeBridgeResponse { store.prepareNamespaces() }
+    func commitCompanions() -> NativeBridgeResponse { store.commitCompanions() }
+
+    func storeNew(
+        word0: UInt64,
+        word1: UInt64,
+        word2: UInt64,
+        word3: UInt64,
+        word4: UInt64,
+        word5: UInt64,
+        word6: UInt64,
+        word7: UInt64,
+        word8: UInt64,
+        word9: UInt64,
+        word10: UInt64,
+        word11: UInt64
+    ) -> NativeBridgeResponse {
+        store.storeNew(
+            word0: word0,
+            word1: word1,
+            word2: word2,
+            word3: word3,
+            word4: word4,
+            word5: word5,
+            word6: word6,
+            word7: word7,
+            word8: word8,
+            word9: word9,
+            word10: word10,
+            word11: word11
+        )
+    }
+
+    func beginLoad() -> NativeBridgeResponse { store.beginLoad() }
+
+    func loadWord(token: UInt64, index: UInt8) -> NativeBridgeResponse {
+        store.loadWord(token: token, index: index)
+    }
+
+    func finishLoad(token: UInt64) -> NativeBridgeResponse {
+        store.finishLoad(token: token)
     }
 }
 
