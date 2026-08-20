@@ -1,6 +1,6 @@
 # Mowy crypto core
 
-Status: P2 implementation active through commit 10. The package branch now
+Status: P2 implementation active through commit 12. The package branch now
 includes the bounded cross-device semantic façade, durable unopened receiver
 staging, a successful iPhone-to-Huawei relay/restart proof, Linux
 AddressSanitizer fuzz evidence, and a controlled physical iOS relock with
@@ -9,6 +9,14 @@ independent human review remain open. The current tip also removes local
 device/signing identifiers from project-owned evidence and Xcode settings;
 already-published Git history and caches still require a separately authorized
 remediation. This repository is not production-ready.
+
+After the commit-10 physical evidence was inspected, the exact development
+proof app and its private container were removed from the iPhone and absence
+was verified by an exact bundle query. Under iOS uninstall semantics and the
+app's reviewed private-container-only storage layout, that final
+disposable-run cleanup removed the retained encrypted receiver archive and
+proof database without targeting the product app or unrelated user data. See
+`evidence/commit-12.md`.
 
 This public, permissively licensed repository owns the native implementation
 mechanics for Mowy Package P2: byte-exact signed key bundles and sealed
