@@ -1,7 +1,9 @@
 # Supply-chain evidence
 
 Status: Implemented for the P2 Rust boundary and protected-key platform build;
-refreshed at every dependency change and reviewed again at package closeout.
+refreshed at every dependency change and reproduced from the rewritten public
+remote during package closeout. This does not mark the overall P2 package
+Implemented or production-ready.
 
 `Cargo.lock` is the exact version/checksum inventory and `vendor/` is the only
 Cargo source. The repository configuration replaces crates.io with that tree
@@ -15,8 +17,9 @@ security-relevant: an unanchored `target/` pattern once hid the upstream
 checksum manifest required it. Commit-13 closeout restored the four affected
 files byte-for-byte against their existing pinned SHA-256 values and audited
 all 7,693 checksum-listed vendored files. Cargo verifies bytes present in a
-checkout; the final fresh-clone gate additionally proves that Git carries the
-files rather than merely finding ignored local copies.
+checkout. The rewritten-remote fresh-clone gate proves that Git carries all
+7,693 checksum-listed files, with every pinned file hash correct, rather than
+merely finding ignored local copies.
 
 `bom.cdx.json` is the CycloneDX 1.5 machine-readable shipped/build package and
 licence inventory generated with `cargo-cyclonedx 0.5.9`, all features, all

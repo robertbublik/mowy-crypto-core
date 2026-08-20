@@ -5,9 +5,10 @@ closeout candidate. Physical single-device lifecycle evidence passes on both
 named devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup
 journey passes. A controlled physical iOS relock before plaintext promotion
 also fails closed and recovers through the same opaque operation after unlock.
-The hazardous personal-device cases have the not-run safety disposition below;
-the local history rewrite, final remote validation, and independent human
-review remain incomplete. This is not production-readiness evidence.
+The hazardous personal-device cases have the not-run safety disposition below.
+The scoped history rewrite and fresh-clone validation pass; GitHub-owned
+cleanup, the private handoff, and independent human review remain incomplete.
+This is not production-readiness evidence.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -142,6 +143,7 @@ relay are recorded in `evidence/commit-7.md`, `evidence/commit-8.md`, and
 self-proof correction, and exact evidence boundary are in
 `evidence/commit-10.md`. Current-tree device/signing identifier redaction and
 the local-only signing-team rule are in `evidence/commit-11.md`; it explicitly
-does not claim published-history erasure. The commit-13 candidate records the
-subsequent local rewrite, exact coverage correction, safety disposition, and
-pending GitHub-owned cleanup in `evidence/commit-13.md`.
+does not claim published-history erasure. Commit-13 evidence records the
+rewrite scope, exact coverage correction, and safety disposition. The
+published remote heads, fresh-clone gate, and still-pending GitHub-owned
+cleanup are recorded in `evidence/commit-14.md`.
