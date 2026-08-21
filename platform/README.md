@@ -6,9 +6,14 @@ named devices, and the iPhone-to-Huawei relay/stage/restart/resume/cleanup
 journey passes. A controlled physical iOS relock before plaintext promotion
 also fails closed and recovers through the same opaque operation after unlock.
 The hazardous personal-device cases have the not-run safety disposition below.
-The scoped history rewrite and fresh-clone validation pass; GitHub-owned
-cleanup, the private handoff, and independent human review remain incomplete.
-This is not production-readiness evidence.
+The scoped history rewrite and fresh-clone validation pass. The maintainer
+declined GitHub-owned cache cleanup through Support and selected a clean-slate
+committed-tree migration; old provider remnants remain an explicit history
+risk rather than a physical-platform or cryptographic pass. The clean import
+and private handoff remain P2 closeout gates. Independent human review remains
+the separate gate before real recordings, external testers, hosted audio, an
+end-to-end-encryption claim, or Milestone 3. This is not production-readiness
+evidence.
 
 Rust generates three independent secrets through the pinned libsodium layer:
 an Ed25519 identity seed, an X25519 private key, and a 32-byte archive key. The
@@ -145,5 +150,8 @@ self-proof correction, and exact evidence boundary are in
 the local-only signing-team rule are in `evidence/commit-11.md`; it explicitly
 does not claim published-history erasure. Commit-13 evidence records the
 rewrite scope, exact coverage correction, and safety disposition. The
-published remote heads, fresh-clone gate, and still-pending GitHub-owned
-cleanup are recorded in `evidence/commit-14.md`.
+published remote heads and fresh-clone gate are recorded in
+`evidence/commit-14.md`. The later maintainer decision not to request
+provider-owned cleanup, and the bounded clean-slate migration plan, are
+recorded in `evidence/commit-15.md`. Neither changes the platform evidence or
+the P8 and independent-review limits above.

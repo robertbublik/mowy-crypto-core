@@ -7,7 +7,8 @@ mowy_bom="$mowy_repo_root/supply-chain/bom.cdx.json"
 mowy_cyclonedx_bin=${MOWY_CARGO_CYCLONEDX_BIN:-cargo-cyclonedx}
 mowy_generated_bom="$mowy_repo_root/mowy-crypto-core-check.json"
 mowy_raw_bom="$mowy_repo_root/mowy-crypto-core-check.raw.json"
-mowy_root_ref="path+file://$mowy_repo_root#mowy-crypto-core@0.1.0"
+mowy_root_ref_short="path+file://$mowy_repo_root#0.1.0"
+mowy_root_ref_named="path+file://$mowy_repo_root#mowy-crypto-core@0.1.0"
 mowy_stable_ref='pkg:cargo/mowy-crypto-core@0.1.0'
 
 cleanup_mowy_generated_bom() {
@@ -54,10 +55,14 @@ fi
     --format json --spec-version 1.5 --all-features --target all \
     --override-filename mowy-crypto-core-check.raw
 )
-jq --arg root_ref "$mowy_root_ref" --arg stable_ref "$mowy_stable_ref" '
+jq --arg root_ref_short "$mowy_root_ref_short" \
+  --arg root_ref_named "$mowy_root_ref_named" \
+  --arg stable_ref "$mowy_stable_ref" '
   walk(
-    if type == "string" and startswith($root_ref) then
-      $stable_ref + .[($root_ref | length):]
+    if type == "string" and startswith($root_ref_named) then
+      $stable_ref + .[($root_ref_named | length):]
+    elif type == "string" and startswith($root_ref_short) then
+      $stable_ref + .[($root_ref_short | length):]
     else
       .
     end

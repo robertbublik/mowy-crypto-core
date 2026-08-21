@@ -29,8 +29,11 @@ vendored crates that can execute a build script. `libsodium-source.sha256`
 freezes the signed archive and signature bytes bundled by the immutable
 `libsodium-sys-stable 1.24.0` crate.
 
-The generator's root `bom-ref` contains the absolute checkout directory. The
-generation check normalizes that root and its target suffixes to the stable
+The generator's root `bom-ref` contains the absolute checkout directory. Cargo
+uses a shortened `#0.1.0` package-ID suffix when that directory is itself named
+`mowy-crypto-core`, and the explicit `#mowy-crypto-core@0.1.0` suffix in a
+differently named checkout. The generation check accepts only those two exact
+root forms and normalizes either form and its target suffixes to the stable
 `pkg:cargo/mowy-crypto-core@0.1.0` reference before comparison. This prevents a
 developer path from becoming public evidence and makes the committed SBOM
 independent of checkout location; dependency references and content are not

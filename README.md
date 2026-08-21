@@ -1,16 +1,21 @@
 # Mowy crypto core
 
-Status: P2 closeout candidate after implementation through rewritten commit
-13. The package branch includes the bounded cross-device semantic façade,
+Status: P2 repository-controlled closeout candidate after implementation
+through rewritten commit 13 and validation through commit 14. The package
+branch includes the bounded cross-device semantic façade,
 durable unopened receiver staging, a successful iPhone-to-Huawei
 relay/restart proof, Linux AddressSanitizer fuzz evidence, and a controlled
 physical iOS relock with durable semantic recovery. The hazardous personal-
 device fault cases now have a reviewed not-run safety disposition, with the
 unproved platform behavior retained below. The maintainer-authorized history
 rewrite is published on the three scoped branches and passes fresh-clone
-validation. GitHub Support submission and provider-owned pull-request/cache
-cleanup remain pending, as do the private-repository handoff and independent
-human review. P2 is not yet final or production-ready.
+validation. On 2026-08-21 the maintainer declined a GitHub Support request and
+selected a clean-slate committed-tree migration to `robertbublik/mowy-crypto`.
+Provider-owned pull-request/cache remnants in this repository therefore remain
+an accepted, explicitly unresolved history risk. The clean import and private-
+repository handoff remain P2 closeout gates. Independent human review is the
+separate gate before real use and Milestone 3. P2 is not yet fixture-only
+Implemented or production-ready.
 
 After the commit-10 physical evidence was inspected, the exact development
 proof app and its private container were removed from the iPhone and absence
@@ -26,15 +31,19 @@ clones. It records that reproducibility repair, the exact rewritten commit map,
 history-remediation boundary, fault-evidence limits, and retained review work
 in `evidence/commit-13.md` and `reviews/commit-13-hostile-review.md`. Exact
 remote and fresh-clone results are recorded in `evidence/commit-14.md` and
-`reviews/commit-14-hostile-review.md`. They must not be read as final history
-erasure while GitHub-owned cleanup remains pending.
+`reviews/commit-14-hostile-review.md`. The maintainer's later clean-slate
+migration disposition is recorded in `evidence/commit-15.md` and
+`reviews/commit-15-hostile-review.md`. None of these records proves erasure of
+GitHub-owned remnants or independent clones.
 
-This public, permissively licensed repository owns the native implementation
-mechanics for Mowy Package P2: byte-exact signed key bundles and sealed
-manifests, the streaming attachment envelope, protected device-key adapters,
-durable operation state, private file and archive lifecycles, public disposable
-vectors, generated UniFFI bindings, proof apps, fuzz targets, hostile reviews,
-and reproducible build/device evidence.
+Until the verified cutover, this public, permissively licensed repository owns
+the native implementation mechanics for Mowy Package P2: byte-exact signed key
+bundles and sealed manifests, the streaming attachment envelope, protected
+device-key adapters, durable operation state, private file and archive
+lifecycles, public disposable vectors, generated UniFFI bindings, proof apps,
+fuzz targets, hostile reviews, and reproducible build/device evidence. After
+cutover, `robertbublik/mowy-crypto` owns the canonical copy and this repository
+remains historical evidence.
 The private application repository owns product UI, account and service
 configuration, hosted delivery, and real user data.
 
@@ -137,27 +146,40 @@ See `fuzz/README.md` for the date-pinned nightly driver, bounds, current Apple
 AddressSanitizer linker limitation, and the distinction between a passing
 coverage-guided run and sanitizer evidence.
 
-## History-remediation boundary
+## History-remediation and migration boundary
 
 The sanitized history is published on the public core's `main`,
 `package/026-p2-sealed-envelope-foundation`, and
 `package/026-p2-sealed-envelope-foundation-implementation` branches, and a
-fresh remote clone passes the complete gate and history audit. Draft public-
-core PR #3 was verified at that exact implementation head before the commit-14
-documentation-only descendant; its final head is rechecked in the private
-handoff. Public-core PR #1 and the closed draft PR #2 reference changed history;
-their GitHub-owned
-references and cached views cannot be removed by a branch push. The required
-Support form is prepared but not submitted pending maintainer confirmation.
+fresh remote clone passes the complete gate and history audit. Exact commit 14
+`0083f85b32a38dd187612ea6fd7680d58ff521b8` passed the complete gate and a
+17-commit/6,933-blob reachable-history audit before this commit-15 worktree.
+Draft public-core PR #3 pointed to that exact baseline; its final head is
+rechecked before merge.
+Public-core PR #1 and the closed draft PR #2 reference changed history; their
+GitHub-owned references and cached views cannot be removed by a branch push.
+The maintainer has declined the GitHub Support route, so those provider-owned
+remnants remain outside the repository's guarantee and are not a claimed pass.
+
+The selected replacement is a history-clean import into
+`robertbublik/mowy-crypto`. Only the exact final committed tree may cross that
+boundary, using a Git archive or equivalent tracked-tree export. The old
+`.git` directory, refs, reflogs, unreachable objects, ignored files, derived
+products, and local configuration must not be copied. The replacement is not
+canonical or ready for public use until its root history, imported tree, full
+gate, strict identifier audit, public visibility, and security-reporting route
+are independently checked and recorded. After that cutover this repository is
+a legacy evidence source; migration does not erase it or its provider caches.
 Private application PR #7 is not being history-rewritten; only its body and
-documentation must be updated to the replacement hashes.
+documentation must be updated to the replacement repository and exact commit.
 
 The remote inventory found no forks, releases, Actions artifacts, or Actions
 caches. That does not prove absence from independent clones or GitHub's
 pull-request/object caches. Old object IDs and any signatures, attestations,
 checks, or links bound to them do not transfer to the rewritten commits. See
 `evidence/commit-13.md` for the rewrite map and `evidence/commit-14.md` for the
-exact remote validation and remaining provider-owned gate.
+exact remote validation and historical provider-owned limitation. Commit 15
+records the maintainer's accepted unresolved disposition.
 
 ## Repository and temporary paths
 
@@ -167,9 +189,10 @@ held only disposable toolchains, tools, derived products, mutable fuzz corpora,
 and copies of public proof receipts. The authorized commit-13 history rewrite
 deliberately used an isolated disposable checkout under `/private/tmp` so
 destructive graph reconstruction could not mutate the durable workspace
-checkout. The rewritten remote is now the public source of truth. All pre-
-rewrite and disposable validation checkouts must be safely retired so they
-cannot recontaminate it.
+checkout. The rewritten remote remains the public source of truth until the
+clean-slate repository satisfies the cutover conditions above. All pre-rewrite
+and disposable validation checkouts must then be permanently retired so they
+cannot recontaminate either repository.
 
 ## Licence
 
