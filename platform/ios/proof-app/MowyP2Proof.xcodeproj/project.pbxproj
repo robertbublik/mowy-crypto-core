@@ -1,0 +1,160 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* ProofApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* ProofApp.swift */; };
+		100000000000000000000002 /* MowyProtectedKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* MowyProtectedKeyStore.swift */; };
+		100000000000000000000003 /* MowyProofBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* MowyProofBridge.swift */; };
+		100000000000000000000004 /* MowyCryptoCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* MowyCryptoCore.swift */; };
+		100000000000000000000006 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* Security.framework */; };
+		100000000000000000000007 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* libsqlite3.tbd */; };
+/* End PBXBuildFile section */
+/* Begin PBXFileReference section */
+		200000000000000000000001 /* ProofApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MowyP2Proof/ProofApp.swift; sourceTree = SOURCE_ROOT; };
+		200000000000000000000002 /* MowyProtectedKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../MowyProtectedKeyStore.swift; sourceTree = SOURCE_ROOT; };
+		200000000000000000000003 /* MowyProofBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../MowyProofBridge.swift; sourceTree = SOURCE_ROOT; };
+		200000000000000000000004 /* MowyCryptoCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../../../bindings/generated/MowyCryptoCore.swift; sourceTree = SOURCE_ROOT; };
+		200000000000000000000005 /* MowyCryptoCoreBridging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MowyP2Proof/MowyCryptoCoreBridging.h; sourceTree = SOURCE_ROOT; };
+		200000000000000000000006 /* libmowy_crypto_core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = ../../../target/aarch64-apple-ios/release/libmowy_crypto_core.a; sourceTree = SOURCE_ROOT; };
+		200000000000000000000007 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		200000000000000000000008 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.text-based-dylib-definition; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		200000000000000000000009 /* MowyP2Proof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MowyP2Proof.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+/* Begin PBXFrameworksBuildPhase section */
+		300000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000006 /* Security.framework in Frameworks */,
+				100000000000000000000007 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+/* Begin PBXGroup section */
+		400000000000000000000001 = {
+			isa = PBXGroup;
+			children = (400000000000000000000002 /* Sources */, 400000000000000000000003 /* Frameworks */, 400000000000000000000004 /* Products */);
+			sourceTree = "<group>";
+		};
+		400000000000000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000001 /* ProofApp.swift */,
+				200000000000000000000002 /* MowyProtectedKeyStore.swift */,
+				200000000000000000000003 /* MowyProofBridge.swift */,
+				200000000000000000000004 /* MowyCryptoCore.swift */,
+				200000000000000000000005 /* MowyCryptoCoreBridging.h */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		400000000000000000000003 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (200000000000000000000006 /* libmowy_crypto_core.a */, 200000000000000000000007 /* Security.framework */, 200000000000000000000008 /* libsqlite3.tbd */);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		400000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (200000000000000000000009 /* MowyP2Proof.app */);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+/* Begin PBXNativeTarget section */
+		500000000000000000000001 /* MowyP2Proof */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900000000000000000000002;
+			buildPhases = (300000000000000000000002 /* Sources */, 300000000000000000000001 /* Frameworks */, 300000000000000000000003 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			name = MowyP2Proof;
+			productName = MowyP2Proof;
+			productReference = 200000000000000000000009 /* MowyP2Proof.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+/* Begin PBXProject section */
+		600000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2630; LastUpgradeCheck = 2630; TargetAttributes = {500000000000000000000001 = {CreatedOnToolsVersion = 26.3;};};};
+			buildConfigurationList = 900000000000000000000001;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 400000000000000000000001;
+			productRefGroup = 400000000000000000000004;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (500000000000000000000001 /* MowyP2Proof */);
+		};
+/* End PBXProject section */
+/* Begin PBXResourcesBuildPhase section */
+		300000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+/* Begin PBXSourcesBuildPhase section */
+		300000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+/* Begin XCBuildConfiguration section */
+		700000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; IPHONEOS_DEPLOYMENT_TARGET = 15.1; SDKROOT = iphoneos; SWIFT_VERSION = 5.0;}; name = Debug; };
+		700000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; IPHONEOS_DEPLOYMENT_TARGET = 15.1; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0;}; name = Release; };
+		800000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mowy P2 Proof";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = ("-force_load", "$(SRCROOT)/../../../target/aarch64-apple-ios/release/libmowy_crypto_core.a");
+				PRODUCT_BUNDLE_IDENTIFIER = app.mowy.prototype.p2proof;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = MowyP2Proof/MowyCryptoCoreBridging.h;
+				SWIFT_VERSION = 5.0;
+				SUPPORTED_PLATFORMS = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		800000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mowy P2 Proof";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = ("-force_load", "$(SRCROOT)/../../../target/aarch64-apple-ios/release/libmowy_crypto_core.a");
+				PRODUCT_BUNDLE_IDENTIFIER = app.mowy.prototype.p2proof;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = MowyP2Proof/MowyCryptoCoreBridging.h;
+				SWIFT_VERSION = 5.0;
+				SUPPORTED_PLATFORMS = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+/* Begin XCConfigurationList section */
+		900000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (700000000000000000000001, 700000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		900000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000001, 800000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = 600000000000000000000001 /* Project object */;
+}

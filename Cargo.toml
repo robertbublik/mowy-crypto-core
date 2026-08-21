@@ -1,0 +1,54 @@
+[package]
+name = "mowy-crypto-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+license = "Apache-2.0"
+description = "Public native cryptographic core for the Mowy P2 fixture-only foundation"
+
+[lib]
+name = "mowy_crypto_core"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "tools/uniffi-bindgen.rs"
+required-features = ["binding-generator"]
+
+[features]
+default = []
+binding-generator = ["uniffi/cli"]
+
+[dependencies]
+libsqlite3-sys = { version = "=0.38.1", features = ["bundled"] }
+libsodium-rs = "=0.2.4"
+libsodium-sys-stable = "=1.24.0"
+rusqlite = { version = "=0.40.1", default-features = false, features = ["bundled"] }
+uniffi = "=0.31.2"
+zeroize = { version = "=1.9.0", default-features = false }
+
+[build-dependencies]
+uniffi = { version = "=0.31.2", features = ["build"] }
+
+[dev-dependencies]
+proptest = "=1.11.0"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = "thin"
+
+[lints.rust]
+unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[lints.clippy]
+dbg_macro = "deny"
+expect_used = "deny"
+panic = "deny"
+print_stderr = "deny"
+print_stdout = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
